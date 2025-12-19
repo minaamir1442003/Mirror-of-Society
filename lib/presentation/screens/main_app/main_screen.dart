@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:app_1/presentation/widgets/layout/bottom_nav_bar.dart';
-import 'home/home_screen.dart';
+import 'home/screen/home_screen.dart';
 import 'explore/categories_screen.dart';
 import 'notifications/notifications_screen.dart';
-import 'profile/profile_screen.dart';
+import 'profile/screen/profile_screen.dart';
 import 'create_bolt/create_bolt_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -16,39 +16,67 @@ class _MainScreenState extends State<MainScreen> {
   int _notificationCount = 5;
   String? _selectedCategory;
   
-  // مفتاح لـ ScaffoldMessenger
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = 
       GlobalKey<ScaffoldMessengerState>();
       
-  final GlobalKey<HomeScreenState> _homeScreenKey = GlobalKey<HomeScreenState>();
-
-
-       List<Widget> get _screens => [
+  // استخدام PageController بدلاً من GlobalKey
+  final PageController _pageController = PageController();
+  
+  List<Widget> get _screens => [
     HomeScreen(
-      key: _homeScreenKey,
       initialCategory: _selectedCategory,
+      onCategoryChange: _onHomeCategoryChange,
     ), // 0 - الرئيسية
     CategoriesScreen(
-      onCategorySelected: _onCategorySelected, // أضف callback
+      onCategorySelected: _onCategorySelected,
     ), // 1 - التصنيفات
     Container(), // 2 - مكان فارغ
     NotificationsScreen(), // 3 - الإشعارات
     ProfileScreen(), // 4 - البروفايل
   ];
-  void _onCategorySelected(String category) {
-    // 1. تغيير الـ selected category
+  
+  // دالة للتعامل مع تغيير الفئة من HomeScreen نفسها
+  void _onHomeCategoryChange(String? category) {
     setState(() {
       _selectedCategory = category;
     });
-     setState(() {
+  }
+
+  void _onCategorySelected(String category) {
+    // 1. حفظ الفئة المحددة
+    _selectedCategory = category;
+    
+    // 2. تغيير المؤشر إلى الصفحة الرئيسية
+    setState(() {
       _currentIndex = 0;
     });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-     _homeScreenKey.currentState?.selectCategory(category);
+    
+    // 3. الانتقال إلى الصفحة الرئيسية مباشرة
+    _pageController.jumpToPage(0);
+    
+    // 4. إرسال حدث تغيير الفئة
+    _notifyCategoryChange(category);
+  }
+
+  void _notifyCategoryChange(String category) {
+    // استخدام طريقة مختلفة لنقل البيانات
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // البحث عن HomeScreen في الشجرة وإرسال البيانات
+      _sendCategoryToHomeScreen(category);
     });
   }
 
-
+  void _sendCategoryToHomeScreen(String category) {
+    // الطريقة 1: استخدام InheritedWidget أو Provider (مستحسن)
+    // الطريقة 2: إعادة بناء HomeScreen مع الفئة الجديدة
+    setState(() {
+      // إعادة بناء HomeScreen مع الفئة الجديدة
+      _screens[0] = HomeScreen(
+        initialCategory: category,
+        onCategoryChange: _onHomeCategoryChange,
+      );
+    });
+  }
 
   void _onTabSelected(int index) {
     if (index == 2) {
@@ -56,12 +84,29 @@ class _MainScreenState extends State<MainScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => CreateBoltScreen()),
-      );
+      ).then((value) {
+        // عند العودة من شاشة الإنشاء
+        if (value != null && value is bool && value) {
+          // يمكنك تحديث الشاشة إذا لزم الأمر
+          _refreshHomeScreen();
+        }
+      });
       return;
     }
 
     setState(() {
       _currentIndex = index;
+    });
+    _pageController.jumpToPage(index);
+  }
+
+  void _refreshHomeScreen() {
+    setState(() {
+      // إعادة بناء HomeScreen
+      _screens[0] = HomeScreen(
+        initialCategory: _selectedCategory,
+        onCategoryChange: _onHomeCategoryChange,
+      );
     });
   }
 
@@ -73,7 +118,7 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: isError ? Colors.red : Colors.green,
         behavior: SnackBarBehavior.floating,
         margin: EdgeInsets.only(
-          bottom: 100, // مسافة من الأسفل للزر العائم
+          bottom: 100,
           left: 16,
           right: 16,
         ),
@@ -89,8 +134,9 @@ class _MainScreenState extends State<MainScreen> {
     return ScaffoldMessenger(
       key: _scaffoldMessengerKey,
       child: Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
+        body: PageView(
+          controller: _pageController,
+          physics: NeverScrollableScrollPhysics(), // لمنع التمرير الأفقي
           children: _screens,
         ),
         bottomNavigationBar: BottomNavBar(

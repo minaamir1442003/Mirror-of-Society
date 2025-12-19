@@ -1,38 +1,90 @@
-// lib/core/constants/shared%20pref.dart
+// lib/core/services/storage_service.dart
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SharedPrefsService {
-  static const String _firstLaunchKey = 'first_launch_completed';
-  static const String _onboardingCompletedKey = 'onboarding_completed';
-
-  // التحقق مما إذا كان المستخدم جديداً (أول تشغيل)
-  static Future<bool> isFirstLaunch() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_firstLaunchKey) != true;
+class StorageService {
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  late SharedPreferences _prefs;
+  bool _isInitialized = false;
+  
+  StorageService() {
+    // بدء التهيئة بشكل غير متزامن
+    _init();
   }
-
-  // تعيين أن المستخدم انتهى من التشغيل الأول
-  static Future<void> setFirstLaunchCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_firstLaunchKey, true);
+  
+  Future<void> _init() async {
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      _isInitialized = true;
+    } catch (e) {
+      print('Error initializing SharedPreferences: $e');
+    }
   }
-
-  // التحقق مما إذا كان المستخدم انتهى من الـ onboarding
-  static Future<bool> isOnboardingCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_onboardingCompletedKey) ?? false;
+  
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await _init();
+    }
   }
-
-  // تعيين أن المستخدم انتهى من الـ onboarding
-  static Future<void> setOnboardingCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_onboardingCompletedKey, true);
+  
+  // Token Methods
+  Future<void> saveToken(String token) async {
+    await _secureStorage.write(key: 'auth_token', value: token);
   }
-
-  // تنظيف جميع البيانات (للتجربة)
-  static Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_firstLaunchKey);
-    await prefs.remove(_onboardingCompletedKey);
+  
+  Future<String?> getToken() async {
+    return await _secureStorage.read(key: 'auth_token');
+  }
+  
+  Future<void> deleteToken() async {
+    await _secureStorage.delete(key: 'auth_token');
+  }
+  
+  // User Data Methods
+  Future<void> saveUser(Map<String, dynamic> user) async {
+    final userJson = jsonEncode(user);
+    await _secureStorage.write(key: 'user_data', value: userJson);
+  }
+  
+  Future<Map<String, dynamic>?> getUser() async {
+    final userJson = await _secureStorage.read(key: 'user_data');
+    if (userJson != null) {
+      return jsonDecode(userJson) as Map<String, dynamic>;
+    }
+    return null;
+  }
+  
+  Future<void> deleteUser() async {
+    await _secureStorage.delete(key: 'user_data');
+  }
+  
+  // First Launch Methods - FIXED
+  Future<bool> isFirstLaunch() async {
+    await _ensureInitialized();
+    return !_prefs.containsKey('first_launch_completed');
+  }
+  
+  Future<void> setFirstLaunchCompleted() async {
+    await _ensureInitialized();
+    await _prefs.setBool('first_launch_completed', true);
+  }
+  
+  // Onboarding Methods - FIXED
+  Future<bool> isOnboardingCompleted() async {
+    await _ensureInitialized();
+    return _prefs.getBool('onboarding_completed') ?? false;
+  }
+  
+  Future<void> setOnboardingCompleted() async {
+    await _ensureInitialized();
+    await _prefs.setBool('onboarding_completed', true);
+  }
+  
+  // Clear All
+  Future<void> clearAll() async {
+    await _secureStorage.deleteAll();
+    await _ensureInitialized();
+    await _prefs.clear();
   }
 }

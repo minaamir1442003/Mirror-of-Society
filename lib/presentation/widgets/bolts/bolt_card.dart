@@ -1,7 +1,6 @@
 import 'package:app_1/data/models/user_model.dart';
 import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:app_1/presentation/screens/main_app/home/user_screen.dart';
-import 'package:app_1/presentation/widgets/bolts/CornerPageCurlPainter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +18,8 @@ class BoltCard extends StatefulWidget {
 class _BoltCardState extends State<BoltCard> {
   bool _isLiked = false;
   int _currentLikes = 0;
+  bool _isReposted = false;
+  int _currentShares = 0;
   List<String> _comments = [
     "ممتاز! 👏",
     "جميل جداً ❤️",
@@ -32,7 +33,11 @@ class _BoltCardState extends State<BoltCard> {
   @override
   void initState() {
     super.initState();
+    // استخدام القيم من نموذج البرقية
+    _isLiked = widget.bolt.isLiked;
     _currentLikes = widget.bolt.likes;
+    _isReposted = widget.bolt.isReposted;
+    _currentShares = widget.bolt.shares;
   }
 
   void _toggleLike() {
@@ -44,9 +49,36 @@ class _BoltCardState extends State<BoltCard> {
         _currentLikes--;
       }
     });
+    
+    // استدعاء دالة الإعجاب إذا كانت موجودة
+    if (widget.bolt.onLikePressed != null) {
+      widget.bolt.onLikePressed!();
+    }
+  }
+
+  void _toggleRepost() {
+    setState(() {
+      _isReposted = !_isReposted;
+      if (_isReposted) {
+        _currentShares++;
+      } else {
+        _currentShares--;
+      }
+    });
+    
+    // استدعاء دالة المشاركة إذا كانت موجودة
+    if (widget.bolt.onSharePressed != null) {
+      widget.bolt.onSharePressed!();
+    }
   }
 
   void _showCommentsDialog(BuildContext context) {
+    // استدعاء دالة التعليقات إذا كانت موجودة
+    if (widget.bolt.onCommentPressed != null) {
+      widget.bolt.onCommentPressed!();
+      return;
+    }
+    
     showDialog(
       context: context,
       builder: (context) {
@@ -256,17 +288,23 @@ class _BoltCardState extends State<BoltCard> {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 5),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // الشريط الجانبي الملون
           _buildCategorySideBar(),
 
-          SizedBox(width: 7),
+          SizedBox(width: 7.w),
 
           // البطاقة الرئيسية
-          _buildMainCard(),
+          Column(
+            children: [
+              _buildMainCard(),
+              SizedBox(height: 10),
+              _buildActionsSection(),
+            ],
+          ),
         ],
-      ),
+      )
     );
   }
 
@@ -277,7 +315,7 @@ class _BoltCardState extends State<BoltCard> {
   Widget _buildCategorySideBar() {
     return Container(
       width: 30.w,
-      height: 110.h,
+      height: 90.h,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15.r),
         color: widget.bolt.categoryColor,
@@ -289,10 +327,12 @@ class _BoltCardState extends State<BoltCard> {
   Widget _buildMainCard() {
     return IntrinsicHeight(
       child: Container(
-        width: 320.w,
+        width: 310.w,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15.r),
+          borderRadius:
+              context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية'
+                  ? BorderRadius.only(topRight: Radius.circular(100.r))
+                  : BorderRadius.only(topLeft: Radius.circular(100.r)),
           boxShadow: [
             BoxShadow(
               color: widget.bolt.categoryColor.withOpacity(0.8),
@@ -302,8 +342,29 @@ class _BoltCardState extends State<BoltCard> {
             ),
           ],
         ),
-        child: Column(
-          children: [_buildContentSection(), _buildActionsSection()],
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              top: 0,
+              child:
+                  context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية'
+                      ? Image.asset(
+                        "assets/image/9c2b5260-39de-4527-a927-d0590bfdcbeb.jpg",
+                        fit: BoxFit.fill,
+                      )
+                      : Image.asset(
+                        "assets/image/df90fd6d-5043-4f3f-af7b-8699f428b253.jpg",
+                        fit: BoxFit.fill,
+                      ),
+            ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [_buildContentSection()],
+            ),
+          ],
         ),
       ),
     );
@@ -313,12 +374,15 @@ class _BoltCardState extends State<BoltCard> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            _buildUserInfo(),
+            // المحتوى النصي
+            _buildContentText(),
+          ],
+        ),
         // صورة المستخدم واسمه
-        _buildUserInfo(),
-
-        // المحتوى النصي
-        _buildContentText(),
-
+        SizedBox(width: 15),
         // قائمة الإعدادات
         _buildSettingsMenu(),
       ],
@@ -332,49 +396,94 @@ class _BoltCardState extends State<BoltCard> {
       },
       child: Stack(
         children: [
-          Container(
-            width: 80.w,
-            padding: EdgeInsets.only(top: 5),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 20.r,
-                  backgroundImage: AssetImage("assets/image/images.jpg"),
-                ),
-                SizedBox(height: 7.h),
-                Text(
-                  widget.bolt.userName,
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
+          Padding(
+            padding: const EdgeInsets.all(1.0),
+            child: Container(
+              width: 80.w,
+                  
+              padding: EdgeInsets.only(top: 5),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 20.r,
+                    backgroundImage: widget.bolt.userImage.startsWith('http')
+                        ? NetworkImage(widget.bolt.userImage)
+                        : AssetImage(widget.bolt.userImage) as ImageProvider,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-
-                Text(
-                  "منذ 30د",
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
+                  SizedBox(height: 7.h),
+                  Text(
+                    widget.bolt.userName,
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  
+                
+                
+                  
+                  Text(
+                  _getTimeAgo(widget.bolt.createdAt),
+                    style: TextStyle(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          context.watch<LanguageProvider>().currentLanguage == 'العربية'
+          context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية'
               ? Positioned(
-                bottom: 40,
-                left: 15,
-                child: Icon(Icons.bookmark, color: Colors.grey, size: 30),
+                top: 25.h,
+                left: 20.w,
+                child: Icon(Icons.bookmark, color: _getRankColor(widget.bolt.userRank.toString()), size: 22.sp),
               )
               : Positioned(
-                bottom: 35,
-                right: 15,
-                child: Icon(Icons.bookmark, color: Colors.grey, size: 30),
+                bottom: 35.h,
+                right: 15.w,
+                child: Icon(Icons.bookmark, color:_getRankColor(widget.bolt.userRank.toString()), size: 22.sp),
               ),
         ],
       ),
     );
   }
+String _formatDate(DateTime date) {
+  return '${date.day}/${date.month}/${date.year}';
+}
+String _getTimeAgo(DateTime date) {
+  final now = DateTime.now();
+  final difference = now.difference(date);
+  
+  if (difference.inDays > 365) {
+    return 'قبل ${(difference.inDays / 365).floor()} سنة';
+  } else if (difference.inDays > 30) {
+    return 'قبل ${(difference.inDays / 30).floor()} شهر';
+  } else if (difference.inDays > 0) {
+    return 'قبل ${difference.inDays} يوم';
+  } else if (difference.inHours > 0) {
+    return 'قبل ${difference.inHours} ساعة';
+  } else if (difference.inMinutes > 0) {
+    return 'قبل ${difference.inMinutes} دقيقة';
+  } else {
+    return 'الآن';
+  }
+}
+Color _getRankColor(String rank) {
+  switch (rank) {
+      case '0':
+        return Colors.grey;
+      case '1':
+        return Colors.red;
+      case '2':
+        return Color(0xFFD4AF37);
+      default:
+        return Colors.blue;
+    }
+}
 
   Widget _buildContentText() {
     return Container(
@@ -391,20 +500,17 @@ class _BoltCardState extends State<BoltCard> {
   Widget _buildSettingsMenu() {
     return Expanded(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.topCenter,
-            child: PopupMenuButton<String>(
-              padding: EdgeInsets.zero,
-              icon: Icon(
-                Icons.more_vert,
-                size: 18.sp,
-                color: Colors.grey.shade600,
-              ),
-              itemBuilder: (context) => _buildMenuItems(),
-              onSelected: (value) => _handleMenuSelection(value, context),
+          PopupMenuButton<String>(
+            padding: EdgeInsets.zero,
+            icon: Icon(
+              Icons.more_vert,
+              size: 20.sp,
+              color: Colors.grey.shade600,
             ),
+            itemBuilder: (context) => _buildMenuItems(),
+            onSelected: (value) => _handleMenuSelection(value, context),
           ),
         ],
       ),
@@ -501,61 +607,46 @@ class _BoltCardState extends State<BoltCard> {
   }
 
   void _showSnackBar(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color)
+    );
   }
 
   Widget _buildActionsSection() {
-    return Column(
-      children: [
-        // الخط الفاصل
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 30.w, vertical: 5),
-          child: Divider(
-            color: widget.bolt.categoryColor.withOpacity(0.8),
-            height: 1.h,
-          ),
+    return Container(
+      width: 280.w,
+      child: Padding(
+        padding: EdgeInsets.only(left: 10.w, right: 10.w),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildActionButton(
+              icon: Icons.emoji_objects,
+              label: _currentLikes > 0 ? _currentLikes.toString() : 'ضوء',
+              isActive: _isLiked,
+              activeColor: Colors.amber.shade700,
+              onTap: _toggleLike,
+            ),
+            _buildActionButton(
+              icon: Icons.chat_bubble_outline,
+              label: widget.bolt.comments > 0 ? widget.bolt.comments.toString() : 'تعليق',
+              onTap: () => _showCommentsDialog(context),
+            ),
+            _buildActionButton(
+              icon: Icons.repeat,
+              label: _currentShares > 0 ? _currentShares.toString() : 'شارك',
+              isActive: _isReposted,
+              activeColor: Colors.green,
+              onTap: _toggleRepost,
+            ),
+            _buildActionButton(
+              icon: Icons.send_outlined,
+              label: 'إرسال',
+              onTap: () => print('تم الإرسال'),
+            ),
+          ],
         ),
-
-        // الأزرار
-        Padding(
-          padding: EdgeInsets.only(left: 10.w, right: 10.w),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildActionButton(
-                icon: Icons.emoji_objects,
-                label: _currentLikes > 0 ? _currentLikes.toString() : 'ضوء',
-                isActive: _isLiked,
-                activeColor: Colors.amber.shade700,
-                onTap: _toggleLike,
-              ),
-              _buildActionButton(
-                icon: Icons.chat_bubble_outline,
-                label:
-                    _comments.length > 0
-                        ? _comments.length.toString()
-                        : 'تعليق',
-                onTap: () => _showCommentsDialog(context),
-              ),
-              _buildActionButton(
-                icon: Icons.repeat,
-                label:
-                    widget.bolt.shares > 0
-                        ? widget.bolt.shares.toString()
-                        : 'شارك',
-                onTap: () => print('تم المشاركة'),
-              ),
-              _buildActionButton(
-                icon: Icons.send_outlined,
-                label: 'إرسال',
-                onTap: () => print('تم الإرسال'),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -573,8 +664,7 @@ class _BoltCardState extends State<BoltCard> {
         children: [
           Icon(
             icon,
-            color:
-                isActive ? (activeColor ?? Colors.blue) : Colors.grey.shade600,
+            color: isActive ? (activeColor ?? Colors.blue) : Colors.grey.shade600,
             size: 20.sp,
           ),
           SizedBox(height: 4.h),
@@ -583,10 +673,7 @@ class _BoltCardState extends State<BoltCard> {
             style: TextStyle(
               fontSize: 10.sp,
               fontWeight: FontWeight.w500,
-              color:
-                  isActive
-                      ? (activeColor ?? Colors.blue)
-                      : Colors.grey.shade700,
+              color: isActive ? (activeColor ?? Colors.blue) : Colors.grey.shade700,
             ),
           ),
         ],
@@ -594,21 +681,32 @@ class _BoltCardState extends State<BoltCard> {
     );
   }
 
-  @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
-  }
-
   void _navigateToUserProfile(BuildContext context) {
-    // إنشاء بيانات وهمية للمستخدم من بيانات البرقية
     final user = UserModel(
-      id: widget.bolt.id, // استخدام ID البرقية مؤقتاً
-      name: widget.bolt.userName,
+      id: int.tryParse(widget.bolt.id) ?? 0,
+      firstname: widget.bolt.userName.split(' ').first,
+      lastname: widget.bolt.userName.split(' ').length > 1 
+          ? widget.bolt.userName.split(' ').last 
+          : 'User',
+      email: '${widget.bolt.userName.replaceAll(' ', '_').toLowerCase()}@example.com',
+      phone: null,
+      bio: 'مستخدم نشط في تطبيق البرقيات 💻 | مهتم بالتكنولوجيا والبرمجة',
+      image: widget.bolt.userImage,
+      cover: null,
+      zodiac: 'الجوزاء',
+      zodiacDescription: 'اجتماعي، مبدع، مرح',
+      shareLocation: true,
+      shareZodiac: true,
+      birthdate: '1995-05-15',
+      country: 'مصر',
+      isVerified: true,
+      emailVerifiedAt: DateTime.now().subtract(Duration(days: 30)),
+      createdAt: DateTime.now().subtract(Duration(days: 365)),
+      updatedAt: DateTime.now(),
+      
+      // الحقول الجديدة
       username: widget.bolt.userName.replaceAll(' ', '_').toLowerCase(),
-      bio: 'مستخدم نشط في تطبيق البرقيات',
-      imageUrl: null, // أو يمكنك استخدام image path
-      boltCount: 42, // عدد وهمي
+      boltCount: 42,
       followersCount: 1200,
       followingCount: 856,
       isFollowing: false,
@@ -618,5 +716,11 @@ class _BoltCardState extends State<BoltCard> {
       context,
       MaterialPageRoute(builder: (context) => VisitProfileScreen(user: user)),
     );
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 }

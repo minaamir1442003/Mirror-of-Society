@@ -1,5 +1,9 @@
+import 'package:app_1/core/constants/injection_container.dart' as di;
 import 'package:app_1/core/constants/shared%20pref.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -59,10 +63,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _goToLogin() async {
-    await SharedPrefsService.setOnboardingCompleted();
-    await SharedPrefsService.setFirstLaunchCompleted();
+    try {
+      final storageService = di.sl<StorageService>();
+      await storageService.setOnboardingCompleted();
 
-    Navigator.of(context).pushReplacementNamed('/login');
+      Navigator.of(context).pushNamed('/login');
+    } catch (e) {
+      print('Error in goToLogin: $e');
+    }
   }
 
   void _nextPage() {
@@ -219,14 +227,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               // Emoji كبير
               Container(
-                height: 180,
-                width: 180,
+                height: 180.h,
+                width: 180.w,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
-                  child:  page.check? Image.asset("assets/image/logo.png"):Text(page.image, style: TextStyle(fontSize: 80)),
+                  child:
+                      page.check
+                          ? Image.asset("assets/image/logo.png")
+                          : Text(page.image, style: TextStyle(fontSize: 80)),
                 ),
               ),
 
@@ -358,6 +369,6 @@ class OnboardingPage {
     required this.backgroundColor,
     required this.textColor,
     required this.image,
-    this.check =false
+    this.check = false,
   });
 }

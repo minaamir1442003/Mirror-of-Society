@@ -5,31 +5,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LanguageService {
   static const String _languageKey = 'app_language';
   
-  // اللغات المتاحة مع أكوادها وأسمائها الأصلية
-  static final Map<String, Map<String, String>> supportedLanguages = {
+  // اللغات المتاحة
+  static final Map<String, Map<String, dynamic>> supportedLanguages = {
     'العربية': {
       'code': 'ar',
       'native': 'العربية',
       'font': 'Cairo',
-      'direction': 'rtl'
+      'direction': 'rtl',
+      'locale': 'ar',
     },
     'English': {
       'code': 'en',
       'native': 'English',
       'font': 'Roboto',
-      'direction': 'ltr'
+      'direction': 'ltr',
+      'locale': 'en',
     },
     'Français': {
       'code': 'fr',
       'native': 'Français',
       'font': 'Roboto',
-      'direction': 'ltr'
+      'direction': 'ltr',
+      'locale': 'fr',
     },
     'Español': {
       'code': 'es',
       'native': 'Español',
       'font': 'Roboto',
-      'direction': 'ltr'
+      'direction': 'ltr',
+      'locale': 'es',
     }
   };
 
@@ -45,8 +49,8 @@ class LanguageService {
       }
     }
     
-    // إذا لم توجد تطابق، استخدم العربية
-    return 'العربية';
+    // إذا لم توجد تطابق، استخدم الإنجليزية كافتراضي
+    return 'English';
   }
 
   // حفظ اللغة المختارة
@@ -66,26 +70,25 @@ class LanguageService {
     
     // إذا لم تكن هناك لغة محفوظة، استخدم لغة الجهاز
     final deviceLanguage = getDeviceLanguage();
-    await setLanguage(deviceLanguage); // احفظ لغة الجهاز
+    await setLanguage(deviceLanguage);
     return deviceLanguage;
   }
 
   // جلب كود اللغة
-  static Future<String> getLanguageCode() async {
-    final languageName = await getSavedLanguage();
-    return supportedLanguages[languageName]?['code'] ?? 'ar';
+  static String getLanguageCode(String languageName) {
+    return supportedLanguages[languageName]?['code'] ?? 'en';
   }
 
-  // جلب اسم الخط المناسب للغة
+  // جبل اسم الخط المناسب للغة
   static Future<String> getFontFamily() async {
     final languageName = await getSavedLanguage();
-    return supportedLanguages[languageName]?['font'] ?? 'Cairo';
+    return supportedLanguages[languageName]?['font'] ?? 'Roboto';
   }
 
   // جلب اتجاه النص
   static Future<ui.TextDirection> getTextDirection() async {
     final languageName = await getSavedLanguage();
-    final direction = supportedLanguages[languageName]?['direction'] ?? 'rtl';
+    final direction = supportedLanguages[languageName]?['direction'] ?? 'ltr';
     return direction == 'rtl' ? ui.TextDirection.rtl : ui.TextDirection.ltr;
   }
 

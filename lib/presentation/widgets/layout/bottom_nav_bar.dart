@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app_1/core/theme/app_colors.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -16,19 +17,19 @@ class BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 90,
+      height: 90.h,
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black26,
-            blurRadius: 15,
+            blurRadius: 15.r,
             offset: Offset(0, -4),
           ),
         ],
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
+          topLeft: Radius.circular(25.r),
+          topRight: Radius.circular(25.r),
         ),
       ),
       child: Stack(
@@ -39,7 +40,7 @@ class BottomNavBar extends StatelessWidget {
             left: 0,
             right: 0,
             child: Container(
-              height: 4,
+              height: 4.h,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -62,7 +63,7 @@ class BottomNavBar extends StatelessWidget {
               _buildNavItem(context, 1, Icons.category_outlined, Icons.category, 'التصنيفات', 0.15),
               
               // مساحة فارغة للزر العائم
-              SizedBox(width: 70),
+              SizedBox(width: 70.w), // استخدام .w
               
               // العنصر الرابع: الإشعارات
               _buildNotificationItem(context, 0.15),
@@ -74,8 +75,8 @@ class BottomNavBar extends StatelessWidget {
           
           // الزر العائم في المنتصف
           Positioned(
-            left: MediaQuery.of(context).size.width / 2 - 35, // في المنتصف تماماً
-            top: 5, // نصفه خارج الـ navigation bar
+            left: MediaQuery.of(context).size.width / 2 - 35.w, // استخدام .w
+            top: 5.h, // استخدام .h
             child: _buildFloatingButton(),
           ),
         ],
@@ -90,12 +91,12 @@ class BottomNavBar extends StatelessWidget {
       width: MediaQuery.of(context).size.width * widthFactor,
       child: InkWell(
         onTap: () => onTabSelected(index),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12.r), // استخدام .r
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: EdgeInsets.all(8),
+              padding: EdgeInsets.all(8.w), // استخدام .w
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isActive ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
@@ -103,14 +104,14 @@ class BottomNavBar extends StatelessWidget {
               child: Icon(
                 isActive ? activeIcon : icon,
                 color: isActive ? AppColors.primary : AppColors.lightGray,
-                size: 22,
+                size: 22.sp, // استخدام .sp
               ),
             ),
-            SizedBox(height: 4),
+            SizedBox(height: 4.h), // استخدام .h
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 10.sp, // استخدام .sp
                 color: isActive ? AppColors.primary : AppColors.lightGray,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               ),
@@ -127,8 +128,8 @@ class BottomNavBar extends StatelessWidget {
     return GestureDetector(
       onTap: () => onTabSelected(2),
       child: Container(
-        width: 70,
-        height: 70,
+        width: 70.w, // استخدام .w
+        height: 70.h, // استخدام .h
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: AppColors.primary,
@@ -143,21 +144,21 @@ class BottomNavBar extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: AppColors.primary.withOpacity(0.4),
-              blurRadius: 15,
-              spreadRadius: 2,
-              offset: Offset(0, 5),
+              blurRadius: 15.r, // استخدام .r
+              spreadRadius: 2.w, // استخدام .w
+              offset: Offset(0, 5.h), // استخدام .h
             ),
           ],
           border: Border.all(
             color: Colors.white,
-            width: 4,
+            width: 4.w, // استخدام .w
           ),
         ),
         child: Center(
           child: Icon(
             isActive ? Icons.check : Icons.add,
             color: Colors.white,
-            size: 30,
+            size: 30.sp, // استخدام .sp
           ),
         ),
       ),
@@ -169,17 +170,17 @@ class BottomNavBar extends StatelessWidget {
     
     return Container(
       width: MediaQuery.of(context).size.width * widthFactor,
-      padding: EdgeInsets.only(right: 20),
+      padding: EdgeInsets.only(right: 20.w), // استخدام .w
       child: Stack(
         children: [
           InkWell(
             onTap: () => onTabSelected(3),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r), // استخدام .r
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: EdgeInsets.all(8),
+                  padding: EdgeInsets.all(8.w), // استخدام .w
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isActive ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
@@ -187,14 +188,14 @@ class BottomNavBar extends StatelessWidget {
                   child: Icon(
                     isActive ? Icons.notifications : Icons.notifications_outlined,
                     color: isActive ? AppColors.primary : AppColors.lightGray,
-                    size: 22,
+                    size: 22.sp, // استخدام .sp
                   ),
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: 4.h), // استخدام .h
                 Text(
                   'الإشعارات',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 8.sp, // استخدام .sp
                     color: isActive ? AppColors.primary : AppColors.lightGray,
                     fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -207,27 +208,27 @@ class BottomNavBar extends StatelessWidget {
           if (notificationCount > 0)
             Positioned(
               right: MediaQuery.of(context).size.width * 0.04,
-              top: 10,
+              top: 10.h, // استخدام .h
               child: Container(
-                padding: EdgeInsets.all(4),
+                padding: EdgeInsets.all(4.w), // استخدام .w
                 decoration: BoxDecoration(
                   color: Colors.red,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Colors.white,
-                    width: 2,
+                    width: 2.w, // استخدام .w
                   ),
                 ),
                 constraints: BoxConstraints(
-                  minWidth: 20,
-                  minHeight: 20,
+                  minWidth: 20.w, // استخدام .w
+                  minHeight: 20.h, // استخدام .h
                 ),
                 child: Center(
                   child: Text(
                     notificationCount > 9 ? '9+' : notificationCount.toString(),
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 9,
+                      fontSize: 9.sp, // استخدام .sp
                       fontWeight: FontWeight.bold,
                     ),
                   ),
