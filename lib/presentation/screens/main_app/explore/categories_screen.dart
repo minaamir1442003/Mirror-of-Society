@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -9,8 +10,6 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-
-
   final List<Category> categories = [
     Category(
       name: 'تكنولوجيا',
@@ -70,23 +69,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     ),
   ];
 
-
-
   // AppBar
   AppBar _buildAppBar() {
     return AppBar(
-      leadingWidth: 150,
+      leadingWidth: 150.w,
       backgroundColor: Colors.white,
       elevation: 0,
       leading: Row(
         children: [
-          Icon(Icons.category, color: AppColors.primary, size: 30),
-          SizedBox(width: 8),
+          Icon(Icons.category, color: AppColors.primary, size: 30.sp),
+          SizedBox(width: 8.w),
           Text(
             'التصنيفات',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 24,
+              fontSize: 24.sp,
               color: AppColors.secondary,
             ),
           ),
@@ -96,13 +93,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         Icon(
           Icons.bookmark,
           color: AppColors.warning,
-          size: 50,
+          size: 40.sp, // تصغير
         ),
+        SizedBox(width: 8.w),
         IconButton(
-          icon: Icon(Icons.search, size: 30),
-          onPressed: () {
-            // دالة البحث
-          },
+          icon: Icon(Icons.search, size: 25.sp), // تصغير
+          onPressed: () {},
         ),
       ],
     );
@@ -110,233 +106,287 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Widget _buildCategoryCard(Category category) {
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // تصغير
       elevation: 2,
       child: InkWell(
         onTap: () {
           _showCategoryDetails(context, category);
         },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: category.color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(category.icon, color: category.color, size: 24),
-                  ),
-                  Spacer(),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: category.color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${category.count}',
-                      style: TextStyle(
+        borderRadius: BorderRadius.circular(12.r),
+        child: Container(
+          constraints: BoxConstraints(minHeight: 180.h), // تحديد ارتفاع أدنى
+          child: Padding(
+            padding: EdgeInsets.all(12.w), // تصغير
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // توزيع المسافات
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(6.w), // تصغير
+                      decoration: BoxDecoration(
+                        color: category.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8.r), // تصغير
+                      ),
+                      child: Icon(
+                        category.icon,
                         color: category.color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        size: 20.sp, // تصغير
                       ),
                     ),
+                    Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 6.w,
+                        vertical: 2.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: category.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6.r), // تصغير
+                      ),
+                      child: Text(
+                        '${category.count}',
+                        style: TextStyle(
+                          color: category.color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.sp, // تصغير
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  category.name,
+                  style: TextStyle(
+                    fontSize: 16.sp, // تصغير قليلاً
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.secondary,
                   ),
-                ],
-              ),
-              SizedBox(height: 12),
-              Text(
-                category.name,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.secondary,
                 ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                category.description,
-                style: TextStyle(
-                  color: AppColors.darkGray,
-                  fontSize: 12,
+                SizedBox(height: 2.h),
+                Expanded( // استخدام Expanded للوصف
+                  child: Text(
+                    category.description,
+                    style: TextStyle(
+                      color: AppColors.darkGray,
+                      fontSize: 11.sp, // تصغير
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
+                SizedBox(height: 8.h),
+                Center(
+                  child: SizedBox(
+                    width: 80.w, // تصغير عرض الزر
+                    height: 28.h, // تصغير ارتفاع الزر
                     child: ElevatedButton(
                       onPressed: () {
                         if (widget.onCategorySelected != null) {
-                        widget.onCategorySelected!(category.name);
-                      }
+                          widget.onCategorySelected!(category.name);
+                        }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:  category.color
-                            ,
-                        foregroundColor:
-                             Colors.white
-                          ,
+                        backgroundColor: category.color,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(15.r), // تصغير
                         ),
-                        padding: EdgeInsets.symmetric(vertical: 8),
+                        padding: EdgeInsets.zero, // إزالة padding الإضافي
                       ),
                       child: Text(
-                         'تصفح' ,
-                        style: TextStyle(fontSize: 12),
+                        'تصفح',
+                        style: TextStyle(fontSize: 11.sp), // تصغير
                       ),
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-
-
   void _showCategoryDetails(BuildContext context, Category category) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(20),
+          padding: EdgeInsets.all(20.w),
           height: MediaQuery.of(context).size.height * 0.7,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.lightGray,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(12),
+          child: SingleChildScrollView( // إضافة ScrollView
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40.w,
+                    height: 4.h,
                     decoration: BoxDecoration(
-                      color: category.color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(category.icon, color: category.color, size: 32),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          category.name,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.secondary,
-                          ),
-                        ),
-                        Text(
-                          '${category.count} برقية',
-                          style: TextStyle(
-                            color: category.color,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                      color: AppColors.lightGray,
+                      borderRadius: BorderRadius.circular(2.r),
                     ),
                   ),
-                
-                ],
-              ),
-              SizedBox(height: 20),
-              Text(
-                category.description,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.darkGray,
-                  height: 1.5,
                 ),
-              ),
-              SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: category.color,
-                  minimumSize: Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                SizedBox(height: 20.h),
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(12.w),
+                      decoration: BoxDecoration(
+                        color: category.color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
+                      child: Icon(
+                        category.icon,
+                        color: category.color,
+                        size: 32.sp,
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            category.name,
+                            style: TextStyle(
+                              fontSize: 24.sp,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            '${category.count} برقية',
+                            style: TextStyle(
+                              color: category.color,
+                              fontSize: 14.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20.h),
+                Text(
+                  category.description,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: AppColors.darkGray,
+                    height: 1.5,
                   ),
                 ),
-                child: Text(
-                  'عرض برقيات ${category.name}',
-                  style: TextStyle(fontSize: 16),
+                SizedBox(height: 30.h),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: category.color,
+                    minimumSize: Size(double.infinity, 50.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                  ),
+                  child: Text(
+                    'عرض برقيات ${category.name}',
+                    style: TextStyle(fontSize: 16.sp),
+                  ),
                 ),
-              ),
-              SizedBox(height: 10),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('إغلاق'),
-              ),
-            ],
+                SizedBox(height: 10.h),
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('إغلاق', style: TextStyle(fontSize: 14.sp)),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
+  // دالة لحساب عدد الأعمدة بناءً على عرض الشاشة
+  int _calculateCrossAxisCount(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    if (screenWidth < 400) {
+      return 1;
+    } else if (screenWidth < 600) {
+      return 2;
+    } else if (screenWidth < 900) {
+      return 3;
+    } else {
+      return 4; // زيادة في الشاشات الكبيرة
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    
     return Scaffold(
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-        
-        
-          SizedBox(height: 16),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  return _buildCategoryCard(categories[index]);
+      appBar: isPortrait ? _buildAppBar() : null,
+      body: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(height: 12.h), // تقليل المسافة
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = _calculateCrossAxisCount(context);
+                  
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12.w), // تقليل
+                    child: GridView.builder(
+                      physics: BouncingScrollPhysics(), // إضافة تأثير التمرير
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        crossAxisSpacing: 12.w, // تقليل
+                        mainAxisSpacing: 12.h, // تقليل
+                        childAspectRatio: _getAspectRatio(crossAxisCount), // دالة جديدة
+                      ),
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) {
+                        return _buildCategoryCard(categories[index]);
+                      },
+                    ),
+                  );
                 },
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  // دالة جديدة لحساب aspect ratio بناءً على عدد الأعمدة وعرض الشاشة
+  double _getAspectRatio(int crossAxisCount) {
+    switch (crossAxisCount) {
+      case 1:
+        return 1.3; // عمود واحد - بطاقة أطول
+      case 2:
+        return 0.75; // عمودين - بطاقة متوسطة
+      case 3:
+        return 0.7; // ثلاثة أعمدة - بطاقة أصغر
+      case 4:
+        return 0.65; // أربعة أعمدة - بطاقة أصغر جداً
+      default:
+        return 0.7;
+    }
   }
 }
 
@@ -357,10 +407,7 @@ class Category {
     this.isFollowing = false,
   });
 
-  Category copyWith({
-    bool? isFollowing,
-    int? count,
-  }) {
+  Category copyWith({bool? isFollowing, int? count}) {
     return Category(
       name: name,
       color: color,

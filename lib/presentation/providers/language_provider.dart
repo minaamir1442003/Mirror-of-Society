@@ -1,38 +1,46 @@
-// lib/providers/language_provider.dart
-import 'package:app_1/data/services/language_service.dart';
+// lib/presentation/providers/language_provider.dart
 import 'package:flutter/material.dart';
+import 'package:app_1/data/services/language_service.dart';
 
 class LanguageProvider with ChangeNotifier {
-  String _currentLanguage = 'العربية'; // استخدم شرطة سفلية للخاصية الخاصة
+  late Locale _currentLocale;
   bool _isLoading = true;
+  
+  // قائمة اللغات المتاحة
+  final Map<String, Locale> _availableLanguages = {
+    'العربية': Locale('ar', ''),
+    'English': Locale('en', ''),
+    'Français': Locale('fr', ''),
+    'Español': Locale('es', ''),
+  };
 
-  // الـ getters للوصول للقيم
-  String get currentLanguage => _currentLanguage;
+  LanguageProvider({required Locale initialLocale}) {
+    _currentLocale = initialLocale;
+    _isLoading = false;
+  }
+
+  Locale get currentLocale => _currentLocale;
   bool get isLoading => _isLoading;
 
-  LanguageProvider() {
-    _initializeLanguage();
-  }
-
-  Future<void> _initializeLanguage() async {
-    _currentLanguage = await LanguageService.getSavedLanguage();
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  Future<void> changeLanguage(String language) async {
+  Future<void> changeLanguage(String languageName) async {
+    if (!_availableLanguages.containsKey(languageName)) {
+      throw Exception('Language not supported');
+    }
+    
     _isLoading = true;
     notifyListeners();
     
     try {
-      // حفظ اللغة في SharedPreferences
-      await LanguageService.setLanguage(language);
+      // 1. حفظ اللغة في SharedPreferences
+      await LanguageService.setLanguage(languageName);
       
-      // تحديث الحالة المحلية
-      _currentLanguage = language;
+      // 2. تحديث الحالة المحلية
+      _currentLocale = _availableLanguages[languageName]!;
       
+      // 3. تحديث واجهة المستخدم
       _isLoading = false;
       notifyListeners();
+      
     } catch (e) {
       _isLoading = false;
       notifyListeners();
@@ -42,27 +50,25 @@ class LanguageProvider with ChangeNotifier {
 
   // جلب اتجاه النص الحالي
   Future<TextDirection> getCurrentTextDirection() async {
-    return await LanguageService.getTextDirection();
+    final languageName = _availableLanguages.entries
+        .firstWhere((entry) => entry.value == _currentLocale)
+        .key;
+    final direction = LanguageService.supportedLanguages[languageName]?['direction'] ?? 'ltr';
+    return direction == 'rtl' ? TextDirection.rtl : TextDirection.ltr;
   }
 
-  // جلب قائمة اللغات المتاحة
+  // جلب قائمة أسماء اللغات المتاحة
   List<String> getAvailableLanguages() {
-    return LanguageService.getLanguageNames();
+    return _availableLanguages.keys.toList();
   }
 
-  // جلب اسم الخط الحالي
-  Future<String> getCurrentFontFamily() async {
-    return await LanguageService.getFontFamily();
+  // الحصول على اسم اللغة الحالية
+  String getCurrentLanguageName() {
+    return _availableLanguages.entries
+        .firstWhere((entry) => entry.value == _currentLocale)
+        .key;
   }
 
-  // دالة مساعدة لإعادة التحميل (اختياري)
-  Future<void> reloadLanguage() async {
-    _isLoading = true;
-    notifyListeners();
-    
-    _currentLanguage = await LanguageService.getSavedLanguage();
-    
-    _isLoading = false;
-    notifyListeners();
-  }
+  // تحقق إذا كانت اللغة عربية
+  bool get isArabic => _currentLocale.languageCode == 'ar';
 }

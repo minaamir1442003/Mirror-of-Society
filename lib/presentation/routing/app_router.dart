@@ -1,11 +1,11 @@
-import 'package:app_1/presentation/screens/auth/forgot_password_screen.dart';
+import 'package:app_1/presentation/screens/auth/forgetpassword/screen/forgot_password_screen.dart';
 import 'package:app_1/presentation/screens/main_app/explore/categories_screen.dart';
+import 'package:app_1/presentation/screens/main_app/main_screen.dart';
 import 'package:app_1/presentation/screens/main_app/onboarding/onboarding_screen.dart';
-import 'package:app_1/presentation/screens/main_app/profile/profile_screen.dart';
+import 'package:app_1/presentation/screens/main_app/profile/screen/profile_screen.dart';
 import 'package:flutter/material.dart';
-import '../screens/auth/login_screen.dart';
-import '../screens/auth/register_screen.dart';
-import '../screens/main_app/main_screen.dart';
+import '../screens/auth/login/screen/login_screen.dart';
+import '../screens/auth/regesteration/screens/register_screen.dart';
 import '../screens/main_app/create_bolt/create_bolt_screen.dart';
 
 class AppRouter {

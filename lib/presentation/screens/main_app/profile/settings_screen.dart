@@ -1,6 +1,9 @@
+import 'package:app_1/core/constants/shared%20pref.dart';
 import 'package:app_1/core/theme/app_theme.dart';
 import 'package:app_1/presentation/providers/language_provider.dart';
+import 'package:app_1/presentation/screens/main_app/profile/cubits/auth_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -254,15 +257,232 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 
-                SizedBox(height: 32),
+                SizedBox(height: 24),
                 
-                // أزرار الإجراءات
-                _buildActionButtons(),
+                // قسم الإجراءات (تسجيل الخروج وحذف الحساب)
+                _buildActionSection(),
                 
                 SizedBox(height: 40),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // قسم الإجراءات الجديد
+  Widget _buildActionSection() {
+    return BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is LogoutSuccess) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login',
+            (route) => false,
+          );
+        } else if (state is LogoutError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 15,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // عنوان القسم
+              Row(
+                children: [
+                  Icon(Icons.warning_amber_outlined, 
+                       color: Colors.orange, size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    'الإجراءات',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+              
+              // زر تسجيل الخروج
+              _buildLogoutButton(),
+              
+              _buildDivider(),
+              
+            
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // زر تسجيل الخروج
+  Widget _buildLogoutButton() {
+    return BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, state) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.1),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ElevatedButton(
+            onPressed: state is LogoutLoading
+                ? null
+                : () => _showLogoutConfirmationDialog(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: state is LogoutLoading
+                ? CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.logout, size: 20),
+                      SizedBox(width: 10),
+                      Text(
+                        'تسجيل الخروج',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+
+
+  // حوار تأكيد تسجيل الخروج
+  void _showLogoutConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.logout, color: Colors.red),
+              SizedBox(width: 8),
+              Text('تسجيل الخروج'),
+            ],
+          ),
+          content: Text('هل أنت متأكد أنك تريد تسجيل الخروج من حسابك؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final authCubit = context.read<AuthCubit>();
+                final storageService = StorageService();
+                
+                await authCubit.logout();
+                await storageService.deleteToken();
+                await storageService.deleteUser();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: Text('تسجيل الخروج'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // حوار تأكيد حذف الحساب
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('حذف الحساب'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('هل أنت متأكد أنك تريد حذف حسابك؟'),
+              SizedBox(height: 8),
+              Text(
+                '⚠️ ملاحظة: هذه العملية غير قابلة للتراجع. سيتم حذف جميع بياناتك بشكل دائم.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                // كود حذف الحساب هنا
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('تم إرسال طلب حذف الحساب'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: Text('حذف الحساب'),
+            ),
+          ],
         ),
       ),
     );
@@ -455,7 +675,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: languageProvider.currentLanguage,
+                    value: languageProvider.getCurrentLanguageName(),
                     icon: Icon(
                       Icons.arrow_drop_down,
                       color: AppTheme.primaryColor,
@@ -519,7 +739,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      languageProvider.currentLanguage,
+                      languageProvider.getCurrentLanguageName(),
                       style: TextStyle(
                         color: AppTheme.primaryColor,
                         fontSize: 11,
@@ -533,80 +753,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       },
-    );
-  }
-
-  // أزرار الإجراءات (تسجيل الخروج وحذف الحساب)
-  Widget _buildActionButtons() {
-    return Column(
-      children: [
-        // زر تسجيل الخروج
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.red.withOpacity(0.1),
-                blurRadius: 8,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: () {
-              _showLogoutDialog(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout, size: 20),
-                SizedBox(width: 10),
-                Text(
-                  'تسجيل الخروج',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ),
-        
-        SizedBox(height: 16),
-        
-        // زر حذف الحساب
-        Container(
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () {
-              _showDeleteAccountDialog(context);
-            },
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              side: BorderSide(color: Colors.grey[400]!),
-            ),
-            child: Text(
-              'حذف الحساب',
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -745,78 +891,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               child: Text('تغيير'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // حوار تسجيل الخروج
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: Text('تسجيل الخروج'),
-          content: Text('هل أنت متأكد أنك تريد تسجيل الخروج من حسابك؟'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('إلغاء', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // كود تسجيل الخروج هنا
-                _scaffoldMessengerKey.currentState?.showSnackBar(
-                  SnackBar(
-                    content: Text('تم تسجيل الخروج بنجاح'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              child: Text('تسجيل الخروج'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // حوار حذف الحساب
-  void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: Text('حذف الحساب'),
-          content: Text('هل أنت متأكد أنك تريد حذف حسابك؟ هذه العملية غير قابلة للتراجع.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('إلغاء', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // كود حذف الحساب هنا
-                _scaffoldMessengerKey.currentState?.showSnackBar(
-                  SnackBar(
-                    content: Text('تم حذف الحساب بنجاح'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              child: Text('حذف الحساب'),
             ),
           ],
         ),
