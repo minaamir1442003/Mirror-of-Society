@@ -27,5 +27,14 @@ class HomeLoaded extends HomeState {
 
 class HomeError extends HomeState {
   final String error;
-  const HomeError({required this.error});
+  final List<FeedItem>? feedItems;
+  final List<OnThisDayEvent>? onThisDayEvents;
+  final bool? hasMore;
+  
+  const HomeError({
+    required this.error,
+    this.feedItems,
+    this.onThisDayEvents,
+    this.hasMore,
+  });
 }

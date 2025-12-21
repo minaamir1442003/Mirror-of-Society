@@ -111,6 +111,36 @@ class FeedItem {
     );
   }
 
+  // ✅ دالة التحويل إلى Map (للتخزين)
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'content': content,
+      'type': type,
+      'created_at': createdAt.toIso8601String(),
+      'user': {
+        'id': user.id,
+        'name': user.name,
+        'email': user.email,
+        'image': user.image,
+        'rank': user.rank,
+      },
+      'category': {
+        'id': category.id,
+        'name': category.name,
+        'color': category.color,
+        'icon': category.icon,
+      },
+      'metrics': {
+        'likes_count': metrics.likesCount,
+        'comments_count': metrics.commentsCount,
+        'reposts_count': metrics.repostsCount,
+      },
+      'is_liked': isLiked,
+      'is_reposted': isReposted,
+    };
+  }
+
   // ✅ دالة التحويل إلى BoltModel
   BoltModel toBoltModel({
     VoidCallback? onLikePressed,
@@ -207,6 +237,17 @@ class TelegramUser {
       rank: json['rank']?.toString() ?? '0',
     );
   }
+
+  // ✅ دالة التحويل إلى Map
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'image': image,
+      'rank': rank,
+    };
+  }
 }
 
 class CategoryModel {
@@ -230,6 +271,16 @@ class CategoryModel {
       icon: json['icon'],
     );
   }
+
+  // ✅ دالة التحويل إلى Map
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'color': color,
+      'icon': icon,
+    };
+  }
 }
 
 class FeedMetrics {
@@ -249,6 +300,15 @@ class FeedMetrics {
       commentsCount: json['comments_count'] ?? 0,
       repostsCount: json['reposts_count'] ?? 0,
     );
+  }
+
+  // ✅ دالة التحويل إلى Map
+  Map<String, dynamic> toJson() {
+    return {
+      'likes_count': likesCount,
+      'comments_count': commentsCount,
+      'reposts_count': repostsCount,
+    };
   }
 }
 
@@ -278,6 +338,17 @@ class OnThisDayEvent {
       imageUrl: json['image_url'],
     );
   }
+
+  // ✅ دالة التحويل إلى Map
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'date': date.toIso8601String(),
+      'image_url': imageUrl,
+    };
+  }
 }
 
 class PaginationInfo {
@@ -297,5 +368,14 @@ class PaginationInfo {
       prevCursor: json['prev_cursor'],
       hasMore: json['has_more'] ?? false,
     );
+  }
+
+  // ✅ دالة التحويل إلى Map
+  Map<String, dynamic> toJson() {
+    return {
+      'next_cursor': nextCursor,
+      'prev_cursor': prevCursor,
+      'has_more': hasMore,
+    };
   }
 }

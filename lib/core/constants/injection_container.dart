@@ -90,8 +90,11 @@ Future<void> init(GlobalKey<NavigatorState> navigatorKey) async {
   );
 
   // في قسم Cubits
-  sl.registerFactory<HomeCubit>(
-    () => HomeCubit(homeRepository: sl<HomeRepository>()),
+ sl.registerFactory<HomeCubit>(
+    () => HomeCubit(
+      homeRepository: sl<HomeRepository>(),
+      storageService: sl<StorageService>(), // ✅ إضافة StorageService
+    ),
   );
 
   // في قسم Cubits
@@ -118,7 +121,15 @@ Future<void> resetUserDependencies() async {
     if (sl.isRegistered<AuthCubit>()) {
       sl.unregister<AuthCubit>();
     }
-    
+ if (sl.isRegistered<HomeCubit>()) {
+      final homeCubit = sl.get<HomeCubit>();
+      await homeCubit.clearCacheAndData();
+    }
+
+    if (sl.isRegistered<HomeCubit>()) {
+      final homeCubit = sl.get<HomeCubit>();
+      await homeCubit.clearCacheAndData();
+    }
     // 3. إعادة تسجيل الـ Cubits
     sl.registerSingleton<AuthCubit>(
       AuthCubit(
@@ -126,6 +137,8 @@ Future<void> resetUserDependencies() async {
         profileCubit: sl<ProfileCubit>(),
       ),
     );
+
+  
     
     print('✅ User dependencies reset successfully');
   } catch (e) {

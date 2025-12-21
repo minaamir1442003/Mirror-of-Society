@@ -29,8 +29,8 @@ class HomeScreen extends StatefulWidget {
 class HomeScreenState extends State<HomeScreen> {
   int _selectedCategoryIndex = 0;
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
-  bool _hasMoreData = true;
+  bool _initialDataLoaded = false;
+  bool _needsRefresh = false; // ✅ إضافة متغير جديد
   
   List<String> get categories {
     final langProvider = context.read<LanguageProvider>();
@@ -78,33 +78,62 @@ class HomeScreenState extends State<HomeScreen> {
       _selectCategoryByName(widget.initialCategory!);
     }
     
-    // تحميل البيانات الأولية
-    context.read<HomeCubit>().getHomeFeed();
-    
     // إعداد الـ ScrollController للتحميل اللانهائي
     _setupScrollController();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // ✅ تحميل البيانات فقط في المرة الأولى أو بعد تسجيل الخروج
+    if (!_initialDataLoaded || _needsRefresh) {
+      print('🔄 HomeScreen: Loading data (initial: $_initialDataLoaded, needsRefresh: $_needsRefresh)');
+      _loadInitialData();
+      _initialDataLoaded = true;
+      _needsRefresh = false;
+    }
+  }
+
   void _setupScrollController() {
     _scrollController.addListener(() {
+      final homeCubit = context.read<HomeCubit>();
+      
       if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200) {
-        _loadMore();
+          _scrollController.position.maxScrollExtent - 300 &&
+          !homeCubit.isLoadingMore &&
+          homeCubit.hasMore) {
+        
+        print('🔄 Reached bottom, loading more...');
+        homeCubit.loadMore();
       }
     });
   }
 
-  void _loadMore() {
-    final homeCubit = context.read<HomeCubit>();
+  void _loadInitialData() {
+    print('📡 HomeScreen: Loading initial data...');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final homeCubit = context.read<HomeCubit>();
+      homeCubit.getHomeFeed();
+    });
+  }
+
+  // ✅ دالة لإعادة تعيين حالة الشاشة
+  void resetScreen() {
+    print('🔄 HomeScreen: Resetting screen...');
+    setState(() {
+      _initialDataLoaded = false;
+      _selectedCategoryIndex = 0;
+      _needsRefresh = true;
+    });
     
-    if (!_isLoadingMore && _hasMoreData && homeCubit.hasMore) {
-      _isLoadingMore = true;
-      print('🔄 Loading more home feed...');
-      
-      homeCubit.getHomeFeed(loadMore: true).then((_) {
-        _isLoadingMore = false;
-      });
-    }
+    // ✅ طلب إعادة تحميل الفيد عند الحاجة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final homeCubit = context.read<HomeCubit>();
+        homeCubit.getHomeFeed(forceRefresh: true);
+      }
+    });
   }
 
   void _selectCategoryByName(String categoryName) {
@@ -113,30 +142,26 @@ class HomeScreenState extends State<HomeScreen> {
       setState(() {
         _selectedCategoryIndex = index;
       });
-      // إعلام الوالد بتغيير الفئة
       if (widget.onCategoryChange != null) {
         widget.onCategoryChange!(categoryName);
       }
-    }
-  }
-
-  // دالة يمكن استدعاؤها من الخارج لتحديث الفئة
-  void updateSelectedCategory(String categoryName) {
-    if (mounted) {
-      _selectCategoryByName(categoryName);
+      
+      // ✅ إعادة تحميل البيانات بعد تغيير الفئة
+      final homeCubit = context.read<HomeCubit>();
+      homeCubit.getHomeFeed();
     }
   }
 
   // دالة لتحويل FeedItem إلى BoltModel
-  BoltModel _feedItemToBoltModel(FeedItem feedItem) {
+  BoltModel _feedItemToBoltModel(FeedItem feedItem, BuildContext context) {
     return feedItem.toBoltModel(
-      onLikePressed: () => _handleLike(feedItem),
+      onLikePressed: () => _handleLike(feedItem, context),
       onCommentPressed: () => _handleComment(feedItem),
-      onSharePressed: () => _handleRepost(feedItem),
+      onSharePressed: () => _handleRepost(feedItem, context),
     );
   }
 
-  void _handleLike(FeedItem feedItem) {
+  void _handleLike(FeedItem feedItem, BuildContext context) {
     final homeCubit = context.read<HomeCubit>();
     if (feedItem.isLiked) {
       homeCubit.unlikeTelegram(feedItem.id);
@@ -146,11 +171,10 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleComment(FeedItem feedItem) {
-    // فتح شاشة التعليقات
     print('Opening comments for telegram ${feedItem.id}');
   }
 
-  void _handleRepost(FeedItem feedItem) {
+  void _handleRepost(FeedItem feedItem, BuildContext context) {
     final homeCubit = context.read<HomeCubit>();
     homeCubit.repostTelegram(feedItem.id);
   }
@@ -252,10 +276,13 @@ class HomeScreenState extends State<HomeScreen> {
               setState(() {
                 _selectedCategoryIndex = index;
               });
-              // إعلام الوالد بتغيير الفئة
               if (widget.onCategoryChange != null) {
                 widget.onCategoryChange!(index == 0 ? null : categories[index]);
               }
+              
+              // ✅ إعادة تحميل البيانات عند تغيير الفئة
+              final homeCubit = context.read<HomeCubit>();
+              homeCubit.getHomeFeed();
             },
             child: Container(
               margin: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -296,7 +323,6 @@ class HomeScreenState extends State<HomeScreen> {
           ),
           child: Row(
             children: [
-              // الصورة
               Container(
                 width: 80,
                 height: 80,
@@ -461,20 +487,39 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody(BuildContext context, HomeState state) {
-    if (state is HomeLoading && state is! HomeLoadingMore) {
+    // ✅ فحص حالة الاتصال قبل عرض البيانات
+    final homeCubit = context.read<HomeCubit>();
+    
+    // حالة التحميل الأولي
+    if (state is HomeLoading && state is! HomeLoadingMore && homeCubit.feedItems.isEmpty) {
       return LoadingIndicator();
     }
 
-    final homeCubit = context.read<HomeCubit>();
     List<FeedItem> feedItems = [];
     List<OnThisDayEvent> onThisDayEvents = [];
 
     if (state is HomeLoaded) {
       feedItems = _getFilteredFeedItems(state.feedItems);
       onThisDayEvents = state.onThisDayEvents;
-      _hasMoreData = state.hasMore;
     } else if (state is HomeLoadingMore) {
       feedItems = _getFilteredFeedItems(state.feedItems);
+    } else if (state is HomeError) {
+      // ✅ أخذ البيانات من حالة الخطأ إذا كانت موجودة
+      feedItems = _getFilteredFeedItems(state.feedItems ?? []);
+      onThisDayEvents = state.onThisDayEvents ?? [];
+      
+      // ✅ عرض بيانات التخزين المؤقت إذا لم تكن هناك اتصال
+      if (feedItems.isEmpty && homeCubit.feedItems.isNotEmpty) {
+        feedItems = _getFilteredFeedItems(homeCubit.feedItems);
+        onThisDayEvents = homeCubit.onThisDayEvents;
+      }
+    }
+
+    // ✅ عرض بيانات التخزين المؤقت إذا لم تكن هناك اتصال
+    final bool hasData = feedItems.isNotEmpty || homeCubit.feedItems.isNotEmpty;
+    
+    if (!hasData && state is HomeError) {
+      return _buildNoConnectionState();
     }
 
     if (homeCubit.isFirstLoad && feedItems.isEmpty) {
@@ -495,15 +540,14 @@ class HomeScreenState extends State<HomeScreen> {
           setState(() {
             _selectedCategoryIndex = 0;
           });
+          homeCubit.getHomeFeed();
         },
       );
     }
 
-    final filteredBolts = feedItems.map(_feedItemToBoltModel).toList();
-
     return RefreshIndicator(
       onRefresh: () async {
-        await homeCubit.getHomeFeed();
+        await homeCubit.refreshFeed();
       },
       child: Stack(
         children: [
@@ -525,30 +569,47 @@ class HomeScreenState extends State<HomeScreen> {
                     child: ListView(
                       controller: _scrollController,
                       children: [
-                        ..._buildBoltsWithTodayFeature(filteredBolts, onThisDayEvents),
-                        if (_isLoadingMore)
+                        ..._buildBoltsWithTodayFeature(
+                          feedItems,
+                          onThisDayEvents,
+                          context,
+                        ),
+                        
+                        // ✅ مؤشر تحميل لتحسين UX
+                        if (homeCubit.isLoadingMore)
                           Container(
                             padding: EdgeInsets.all(20),
                             child: Center(
                               child: Column(
                                 children: [
-                                  CircularProgressIndicator(color: AppTheme.primaryColor),
-                                  SizedBox(height: 8),
+                                  CircularProgressIndicator(
+                                    color: AppTheme.primaryColor,
+                                    strokeWidth: 2,
+                                  ),
+                                  SizedBox(height: 12),
                                   Text(
                                     'جاري تحميل المزيد...',
-                                    style: TextStyle(color: AppTheme.darkGray, fontSize: 14),
+                                    style: TextStyle(
+                                      color: AppTheme.darkGray,
+                                      fontSize: 14,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                        if (!_hasMoreData && homeCubit.feedItemsCount > 0)
+                        
+                        // ✅ رسالة نهاية البيانات
+                        if (!homeCubit.hasMore && homeCubit.feedItemsCount > 0)
                           Container(
-                            padding: EdgeInsets.all(20),
+                            padding: EdgeInsets.symmetric(vertical: 20),
                             child: Center(
                               child: Text(
-                                'تم تحميل جميع البرقيات',
-                                style: TextStyle(color: AppTheme.darkGray, fontSize: 14),
+                                'تم الوصول إلى نهاية المحتوى',
+                                style: TextStyle(
+                                  color: AppTheme.darkGray.withOpacity(0.7),
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ),
@@ -564,19 +625,73 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Widget> _buildBoltsWithTodayFeature(List<BoltModel> bolts, List<OnThisDayEvent> events) {
+  Widget _buildNoConnectionState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.wifi_off,
+            size: 80,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 20),
+          Text(
+            'لا يوجد اتصال بالإنترنت',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'جاري عرض البيانات المخزنة محلياً',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              final homeCubit = context.read<HomeCubit>();
+              homeCubit.refreshFeed();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: Text('حاول مرة أخرى'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildBoltsWithTodayFeature(
+    List<FeedItem> feedItems,
+    List<OnThisDayEvent> events,
+    BuildContext context,
+  ) {
     List<Widget> widgets = [];
     
-    for (int i = 0; i < bolts.length; i++) {
-      widgets.add(BoltCard(bolt: bolts[i]));
+    for (int i = 0; i < feedItems.length; i++) {
+      final bolt = _feedItemToBoltModel(feedItems[i], context);
+      widgets.add(BoltCard(bolt: bolt));
       
-      if ((i + 1) % 3 == 0 && i != bolts.length - 1) {
+      if ((i + 1) % 3 == 0 && i != feedItems.length - 1) {
         widgets.add(_buildTodayFeature(events));
         widgets.add(SizedBox(height: 8));
       }
     }
     
-    if (bolts.length < 3) {
+    if (feedItems.length < 3) {
       widgets.add(_buildTodayFeature(events));
       widgets.add(SizedBox(height: 8));
     }
@@ -739,7 +854,10 @@ class HomeScreenState extends State<HomeScreen> {
         listener: (context, state) {
           if (state is HomeError) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.error)),
+              SnackBar(
+                content: Text(state.error),
+                backgroundColor: Colors.red,
+              ),
             );
           }
         },
