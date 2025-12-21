@@ -104,30 +104,51 @@ class StorageService {
   }
   
   Future<void> clearAllUserData() async {
-    try {
-      print('🧹 Clearing all user data from storage...');
-      
-      await ensureInitialized();
-      
-      // مسح التوكن
-      await deleteToken();
-      
-      // مسح بيانات المستخدم
-      await deleteUser();
-      
-      // مسح أي بيانات أخرى مرتبطة بالمستخدم
-      await _prefs.remove('user_id');
-      await _prefs.remove('user_name');
-      await _prefs.remove('user_email');
-      await _prefs.remove('user_image');
-      await _prefs.remove('user_rank');
-      await _prefs.remove('fcm_token');
-      await _prefs.remove('notifications_enabled');
-      
-      print('✅ All user data cleared from storage');
-    } catch (e) {
-      print('❌ Error clearing user data: $e');
-    }
+  try {
+    print('🧹 StorageService: Clearing all user data from storage...');
+    
+    await ensureInitialized();
+    
+    // مسح التوكن
+    await deleteToken();
+    
+    // مسح بيانات المستخدم
+    await deleteUser();
+    
+    // مسح الكاش
+    await deleteSecureData('cached_home_feed');
+    await deleteSecureData('cached_events');
+    await deleteSecureData('cached_next_cursor');
+    await deleteSecureData('cached_has_more');
+    await deleteSecureData('cached_timestamp');
+    
+    // مسح أي بيانات أخرى مرتبطة بالمستخدم
+    await _prefs.remove('user_id');
+    await _prefs.remove('user_name');
+    await _prefs.remove('user_email');
+    await _prefs.remove('user_image');
+    await _prefs.remove('user_rank');
+    await _prefs.remove('fcm_token');
+    await _prefs.remove('notifications_enabled');
+    
+    print('✅ StorageService: All user data cleared');
+  } catch (e) {
+    print('❌ StorageService: Error clearing user data: $e');
+  }
+}
+  Future<void> writeSecureData(String key, String value) async {
+    await ensureInitialized();
+    await _secureStorage.write(key: key, value: value);
+  }
+  
+  Future<String?> readSecureData(String key) async {
+    await ensureInitialized();
+    return await _secureStorage.read(key: key);
+  }
+  
+  Future<void> deleteSecureData(String key) async {
+    await ensureInitialized();
+    await _secureStorage.delete(key: key);
   }
   
   // ✅ دالة جديدة لفحص حالة التخزين

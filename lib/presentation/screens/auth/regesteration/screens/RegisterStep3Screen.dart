@@ -1,12 +1,12 @@
 import 'package:app_1/presentation/screens/auth/regesteration/models/RegisterData.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/screens/RegisterStep4Screen.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/models/category_model.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/models/zodiac_model.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/repositories/general_repository.dart';
 import 'package:app_1/core/constants/dio_client.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class RegisterStep3Screen extends StatefulWidget {
   final RegisterData registerData;
@@ -28,15 +28,16 @@ class _RegisterStep3ScreenState extends State<RegisterStep3Screen> {
 
   DateTime? _selectedDate;
   String? _calculatedZodiacSign;
-  String? _autoZodiacDescription;
 
   List<CategoryModel> _availableCategories = [];
   List<ZodiacModel> _availableZodiacs = [];
   List<int> _selectedInterests = [];
 
   bool _isLoadingCategories = false;
-  bool _isLoadingZodiacs = false;
   bool _isAutoDescription = false; // إضافة فلاج لمعرفة إذا كان الوصف تلقائياً
+    bool _isLoadingZodiacs = false; // <-- أضف هذا
+  String? _autoZodiacDescription; // <-- أضف هذا
+
 
   @override
   void initState() {

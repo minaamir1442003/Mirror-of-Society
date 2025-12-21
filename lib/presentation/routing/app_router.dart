@@ -6,7 +6,6 @@ import 'package:app_1/presentation/screens/main_app/onboarding/onboarding_screen
 import 'package:app_1/presentation/screens/main_app/profile/screen/profile_screen.dart';
 import 'package:flutter/material.dart';
 import '../screens/auth/login/screen/login_screen.dart';
-import '../screens/auth/regesteration/screens/register_screen.dart';
 import '../screens/main_app/create_bolt/create_bolt_screen.dart';
 
 class AppRouter {

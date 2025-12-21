@@ -12,6 +12,7 @@ class HomeRepository {
       print('📡 Fetching home feed from: ${ApiConstants.apiBaseUrl}/home');
       print('🔗 Cursor: $cursor');
       
+      // ✅ تصحيح: استخدم cursor مباشرة
       final queryParams = cursor != null ? {'cursor': cursor} : null;
       
       final response = await _dio.get(
@@ -20,11 +21,20 @@ class HomeRepository {
       );
       
       print('✅ Home feed response received');
-      print('📊 Total items: ${response.data['data']['feed']['data']?.length ?? 0}');
+      print('📊 Response status: ${response.statusCode}');
+      
+      // ✅ فحص الاستجابة
+      if (response.data['status'] != true) {
+        throw Exception(response.data['message'] ?? 'Failed to load home feed');
+      }
+      
+      final feedData = response.data['data']['feed']['data'] ?? [];
+      print('📦 Total items in response: ${feedData.length}');
       
       return HomeFeedResponse.fromJson(response.data);
     } on DioException catch (e) {
       print('❌ Dio Error: ${e.message}');
+      print('❌ Status code: ${e.response?.statusCode}');
       print('❌ Error response: ${e.response?.data}');
       
       if (e.response != null) {
