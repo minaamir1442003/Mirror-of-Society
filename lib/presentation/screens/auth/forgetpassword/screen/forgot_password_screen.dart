@@ -1,6 +1,7 @@
 import 'package:app_1/core/theme/app_colors.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/cubit/forgot_password_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubit/forgot_password_cubit.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/screen/VerifyOtpScreen.dart';
@@ -44,6 +45,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent, // جعل الشريط شفاف
+    statusBarIconBrightness: Brightness.dark, // للأندرويد: أيقونات سوداء
+    statusBarBrightness: Brightness.light, // للـ iOS: أيقونات سوداء
+  ));
     return BlocConsumer<ForgotPasswordCubit, ForgotPasswordState>(
       listener: (context, state) {
         if (state is ForgotPasswordError) {
@@ -74,13 +80,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             backgroundColor: Colors.transparent,
             elevation: 0,
           ),
-          body: SafeArea(
-            child: SingleChildScrollView(
+          body: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // الرأس
+                  SizedBox(height: 20,),
                   Center(
                     child: Column(
                       children: [
@@ -264,7 +269,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ],
               ),
             ),
-          ),
+        
         );
       },
     );

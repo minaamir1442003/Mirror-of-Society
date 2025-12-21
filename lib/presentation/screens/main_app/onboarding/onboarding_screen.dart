@@ -2,11 +2,11 @@ import 'package:app_1/core/constants/injection_container.dart' as di;
 import 'package:app_1/core/constants/shared%20pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({Key? key}) : super(key: key);
+  final VoidCallback? onCompleted; // ✅ إضافة callback
+  
+  const OnboardingScreen({Key? key, this.onCompleted}) : super(key: key);
 
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
@@ -64,12 +64,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _goToLogin() async {
     try {
+      print('🚀 OnboardingScreen: Navigating to login...');
+      
       final storageService = di.sl<StorageService>();
+      
+      // ✅ تأكد من تهيئة الـ storage أولاً
+      await storageService.ensureInitialized();
+      
+      // ✅ حفظ حالة إكمال الأونبوردينج
       await storageService.setOnboardingCompleted();
+      print('✅ OnboardingScreen: Completion saved');
+      
+      // ✅ استدعاء callback إذا وجد
+      if (widget.onCompleted != null) {
+        print('✅ OnboardingScreen: Calling onCompleted callback');
+        widget.onCompleted!();
+      }
 
-      Navigator.of(context).pushNamed('/login');
+      // ✅ الانتقال لشاشة تسجيل الدخول
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+        print('✅ OnboardingScreen: Navigation completed');
+      }
+      
     } catch (e) {
-      print('Error in goToLogin: $e');
+      print('❌ OnboardingScreen: Error in goToLogin: $e');
+      // حتى لو حدث خطأ، انتقل للشاشة التالية
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
     }
   }
 
@@ -80,7 +103,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      _goToLogin();
+      _goToLogin(); // ✅ الصفحة الأخيرة تنادي goToLogin مباشرة
     }
   }
 
@@ -128,7 +151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: TextButton(
-                  onPressed: _goToLogin,
+                  onPressed: _goToLogin, // ✅ التخطي ينادي goToLogin مباشرة
                   child: Text(
                     'تخطي',
                     style: TextStyle(
@@ -301,7 +324,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ],
                   ),
                   child: TextButton(
-                    onPressed: _goToLogin,
+                    onPressed: _goToLogin, // ✅ زر "ابدأ الآن" ينادي goToLogin
                     style: TextButton.styleFrom(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),

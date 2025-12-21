@@ -2,6 +2,7 @@
 import 'package:app_1/presentation/screens/auth/login/cubit/login_cubit.dart';
 import 'package:app_1/presentation/screens/auth/login/widget/custom_snackbar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:app_1/core/theme/app_colors.dart';
@@ -62,6 +63,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent, // جعل الشريط شفاف
+    statusBarIconBrightness: Brightness.dark, // للأندرويد: أيقونات سوداء
+    statusBarBrightness: Brightness.light, // للـ iOS: أيقونات سوداء
+  ));
     return BlocConsumer<LoginCubit, LoginState>(
       listener: (context, state) {
         if (state is LoginError) {

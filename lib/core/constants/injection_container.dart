@@ -1,4 +1,3 @@
-// lib/core/constants/injection_container.dart
 import 'package:app_1/core/constants/dio_client.dart';
 import 'package:app_1/core/constants/shared%20pref.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/cubit/forgot_password_cubit.dart';
@@ -68,34 +67,68 @@ Future<void> init(GlobalKey<NavigatorState> navigatorKey) async {
   );
   
   sl.registerFactory<AuthCubit>(
-    () => AuthCubit(authRepository: sl<AuthRepository>()),
-  );
+  () => AuthCubit(
+    authRepository: sl<AuthRepository>(),
+    profileCubit: sl<ProfileCubit>(), // ✅ تمرير ProfileCubit
+  ),
+);
   
-  sl.registerFactory<ProfileCubit>(
-    () => ProfileCubit(profileRepository: sl<ProfileRepository>()),
+  sl.registerSingleton<ProfileCubit>(
+    ProfileCubit(profileRepository: sl<ProfileRepository>()),
   );
   
   sl.registerFactory<ForgotPasswordCubit>(
     () => ForgotPasswordCubit(authRepository: sl<LogoutRepository>()),
   );
+  
   sl.registerSingleton<UpdateProfileRepository>(
-  UpdateProfileRepository(dio: sl<DioClient>().dio),
-);
-sl.registerSingleton<HomeRepository>(
-  HomeRepository(dio: sl<DioClient>().dio),
-);
+    UpdateProfileRepository(dio: sl<DioClient>().dio),
+  );
+  
+  sl.registerSingleton<HomeRepository>(
+    HomeRepository(dio: sl<DioClient>().dio),
+  );
 
-// في قسم Cubits
-sl.registerFactory<HomeCubit>(
-  () => HomeCubit(homeRepository: sl<HomeRepository>()),
-);
+  // في قسم Cubits
+  sl.registerFactory<HomeCubit>(
+    () => HomeCubit(homeRepository: sl<HomeRepository>()),
+  );
 
-// في قسم Cubits
-sl.registerFactory<UpdateProfileCubit>(
-  () => UpdateProfileCubit(updateRepository: sl<UpdateProfileRepository>()),
-);
+  // في قسم Cubits
+  sl.registerFactory<UpdateProfileCubit>(
+    () => UpdateProfileCubit(updateRepository: sl<UpdateProfileRepository>()),
+  );
+  
   // ✅ إضافة OtpCubit
   sl.registerFactory<OtpCubit>(
     () => OtpCubit(otpRepository: sl<OtpRepository>()),
   );
+}
+
+// ✅ دالة reset للـ user dependencies - خارج init
+Future<void> resetUserDependencies() async {
+  print('🔄 Resetting user dependencies...');
+  
+  try {
+    // 1. Reset ProfileCubit
+    final profileCubit = sl.get<ProfileCubit>();
+    profileCubit.clearAllData();
+    
+    // 2. Reset AuthCubit
+    if (sl.isRegistered<AuthCubit>()) {
+      sl.unregister<AuthCubit>();
+    }
+    
+    // 3. إعادة تسجيل الـ Cubits
+    sl.registerSingleton<AuthCubit>(
+      AuthCubit(
+        authRepository: sl<AuthRepository>(),
+        profileCubit: sl<ProfileCubit>(),
+      ),
+    );
+    
+    print('✅ User dependencies reset successfully');
+  } catch (e) {
+    print('❌ Error resetting dependencies: $e');
+  }
 }

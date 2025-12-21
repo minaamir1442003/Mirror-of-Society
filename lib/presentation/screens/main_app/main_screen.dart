@@ -1,4 +1,7 @@
+// lib/presentation/screens/main_app/main_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
 import 'package:app_1/presentation/widgets/layout/bottom_nav_bar.dart';
 import 'home/screen/home_screen.dart';
 import 'explore/categories_screen.dart';
@@ -19,23 +22,52 @@ class _MainScreenState extends State<MainScreen> {
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = 
       GlobalKey<ScaffoldMessengerState>();
       
-  // استخدام PageController بدلاً من GlobalKey
   final PageController _pageController = PageController();
   
+  // ✅ تحديث getter للشاشات ليتضمن ProfileScreen مع cache
   List<Widget> get _screens => [
     HomeScreen(
       initialCategory: _selectedCategory,
       onCategoryChange: _onHomeCategoryChange,
-    ), // 0 - الرئيسية
+    ),
     CategoriesScreen(
       onCategorySelected: _onCategorySelected,
-    ), // 1 - التصنيفات
-    Container(), // 2 - مكان فارغ
-    NotificationsScreen(), // 3 - الإشعارات
-    ProfileScreen(), // 4 - البروفايل
+    ),
+    Container(),
+    NotificationsScreen(),
+    // ✅ ProfileScreen بدون userId (يعني البروفايل الخاص بالمستخدم)
+    ProfileScreen(userId: null),
   ];
   
-  // دالة للتعامل مع تغيير الفئة من HomeScreen نفسها
+  // ✅ متغير لتتبع إذا كان البروفايل بحاجة لتحديث
+  bool _shouldRefreshProfile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupPageControllerListener();
+  }
+
+  // ✅ إضافة listener للـ PageController
+  void _setupPageControllerListener() {
+    _pageController.addListener(() {
+      final int pageIndex = _pageController.page?.round() ?? 0;
+      
+      // ✅ عندما ننتقل إلى صفحة البروفايل (index 4)
+      if (pageIndex == 4 && _shouldRefreshProfile) {
+        _refreshProfileScreen();
+        _shouldRefreshProfile = false;
+      }
+      
+      // ✅ تحديث currentIndex
+      if (_currentIndex != pageIndex) {
+        setState(() {
+          _currentIndex = pageIndex;
+        });
+      }
+    });
+  }
+
   void _onHomeCategoryChange(String? category) {
     setState(() {
       _selectedCategory = category;
@@ -43,55 +75,36 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onCategorySelected(String category) {
-    // 1. حفظ الفئة المحددة
     _selectedCategory = category;
     
-    // 2. تغيير المؤشر إلى الصفحة الرئيسية
     setState(() {
       _currentIndex = 0;
     });
     
-    // 3. الانتقال إلى الصفحة الرئيسية مباشرة
     _pageController.jumpToPage(0);
     
-    // 4. إرسال حدث تغيير الفئة
-    _notifyCategoryChange(category);
-  }
-
-  void _notifyCategoryChange(String category) {
-    // استخدام طريقة مختلفة لنقل البيانات
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // البحث عن HomeScreen في الشجرة وإرسال البيانات
-      _sendCategoryToHomeScreen(category);
-    });
-  }
-
-  void _sendCategoryToHomeScreen(String category) {
-    // الطريقة 1: استخدام InheritedWidget أو Provider (مستحسن)
-    // الطريقة 2: إعادة بناء HomeScreen مع الفئة الجديدة
-    setState(() {
-      // إعادة بناء HomeScreen مع الفئة الجديدة
-      _screens[0] = HomeScreen(
-        initialCategory: category,
-        onCategoryChange: _onHomeCategoryChange,
-      );
+      _refreshHomeScreen();
     });
   }
 
   void _onTabSelected(int index) {
     if (index == 2) {
-      // الانتقال لشاشة الإنشاء
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => CreateBoltScreen()),
       ).then((value) {
-        // عند العودة من شاشة الإنشاء
         if (value != null && value is bool && value) {
-          // يمكنك تحديث الشاشة إذا لزم الأمر
           _refreshHomeScreen();
         }
       });
       return;
+    }
+
+    // ✅ إذا كنا ننتقل لصفحة البروفايل وكان هناك حاجة لتحديث
+    if (index == 4 && _shouldRefreshProfile) {
+      _refreshProfileScreen();
+      _shouldRefreshProfile = false;
     }
 
     setState(() {
@@ -102,7 +115,6 @@ class _MainScreenState extends State<MainScreen> {
 
   void _refreshHomeScreen() {
     setState(() {
-      // إعادة بناء HomeScreen
       _screens[0] = HomeScreen(
         initialCategory: _selectedCategory,
         onCategoryChange: _onHomeCategoryChange,
@@ -110,7 +122,40 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  // دالة جديدة لاظهار SnackBar
+  // ✅ دالة لتحديث شاشة البروفايل
+  void _refreshProfileScreen() {
+    final profileCubit = context.read<ProfileCubit>();
+    
+    // ✅ فقط إذا كان هناك cache قديم
+    if (profileCubit.isProfileLoaded) {
+      // ✅ نستخدم clearCache بدلاً من clearProfile للحفاظ على البيانات
+      profileCubit.clearCache();
+      
+      // ✅ إعادة تحميل البروفايل
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        profileCubit.getMyProfile();
+      });
+    }
+  }
+
+  // ✅ دالة لتحديث البروفايل من خارج الـ Screen
+  void refreshProfileData() {
+    _shouldRefreshProfile = true;
+    
+    // ✅ إذا كنا في صفحة البروفايل حالياً، نقوم بالتحديث فوراً
+    if (_currentIndex == 4) {
+      _refreshProfileScreen();
+      _shouldRefreshProfile = false;
+    }
+  }
+
+  // ✅ دالة لتحديث شاشة الإشعارات
+  void _refreshNotificationsScreen() {
+    setState(() {
+      _screens[3] = NotificationsScreen();
+    });
+  }
+
   void showAppSnackBar(String message, {bool isError = false}) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
@@ -131,20 +176,42 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ScaffoldMessenger(
-      key: _scaffoldMessengerKey,
-      child: Scaffold(
-        body: PageView(
-          controller: _pageController,
-          physics: NeverScrollableScrollPhysics(), // لمنع التمرير الأفقي
-          children: _screens,
+    return MultiBlocListener(
+      listeners: [
+        // ✅ الاستماع لتحديثات ProfileCubit
+        BlocListener<ProfileCubit, ProfileState>(
+          listener: (context, state) {
+            if (state is ProfileUpdated) {
+              // ✅ عند تحديث البروفايل، نضع علامة أنه يحتاج تحديث
+              _shouldRefreshProfile = true;
+              
+              // ✅ إظهار رسالة نجاح
+              showAppSnackBar('تم تحديث الملف الشخصي بنجاح');
+            }
+          },
         ),
-        bottomNavigationBar: BottomNavBar(
-          currentIndex: _currentIndex,
-          onTabSelected: _onTabSelected,
-          notificationCount: _notificationCount,
+      ],
+      child: ScaffoldMessenger(
+        key: _scaffoldMessengerKey,
+        child: Scaffold(
+          body: PageView(
+            controller: _pageController,
+            physics: NeverScrollableScrollPhysics(),
+            children: _screens,
+          ),
+          bottomNavigationBar: BottomNavBar(
+            currentIndex: _currentIndex,
+            onTabSelected: _onTabSelected,
+            notificationCount: _notificationCount,
+          ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 }

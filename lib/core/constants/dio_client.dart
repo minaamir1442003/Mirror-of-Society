@@ -1,14 +1,13 @@
-// lib/core/constants/dio_client.dart
+// lib/core/constants/dio_client.dart - النسخة المحسنة
 import 'package:app_1/core/constants/api_const.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-// import 'package:get/get.dart'; ❌ إزالة هذا الاستيراد
 
 class DioClient {
   late Dio _dio;
-  final FlutterSecureStorage _storage = FlutterSecureStorage();
-  final GlobalKey<NavigatorState>? navigatorKey; // ✅ إضافة navigatorKey
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final GlobalKey<NavigatorState>? navigatorKey;
   
   DioClient({this.navigatorKey}) {
     _dio = Dio(
@@ -38,19 +37,15 @@ class DioClient {
         handler.next(options);
       },
       onError: (error, handler) async {
-        // Handle 401 Unauthorized
-        if (error.response?.statusCode == 401) {
-          await _storage.delete(key: 'auth_token');
-          await _storage.delete(key: 'user_data');
-          
-          // ✅ استخدام NavigatorKey بدلاً من Get
-          if (navigatorKey != null && navigatorKey!.currentState != null) {
-            navigatorKey!.currentState!.pushNamedAndRemoveUntil(
-              '/login',
-              (route) => false,
-            );
-          }
-        }
+        print('🚨 Dio Error Details:');
+        print('📊 Status: ${error.response?.statusCode}');
+        print('🔗 Path: ${error.requestOptions.path}');
+        print('💬 Message: ${error.message}');
+        print('📄 Response: ${error.response?.data}');
+        
+        // IMPORTANT: We don't handle redirects here anymore!
+        // All error handling should be done in Cubits/Blocs
+        
         handler.next(error);
       },
     ));

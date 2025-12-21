@@ -32,15 +32,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _profileImagePath;
   String? _coverImagePath;
   
-  // لتتبع إذا تم اختيار صور جديدة أو الحالية
   bool _profileImageChanged = false;
   bool _coverImageChanged = false;
   
-  // لتخزين رابط الصور الحالية
   String? _currentProfileImageUrl;
   String? _currentCoverImageUrl;
   
-  // قائمة الدول المنظمة
   final List<String> _countries = [
     'مصر', 'السعودية', 'الإمارات', 'الكويت', 'قطر',
     'عمان', 'البحرين', 'الأردن', 'لبنان', 'سوريا',
@@ -61,6 +58,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     UserProfileModel profile;
     if (state is ProfileLoaded || state is ProfileUpdated) {
       profile = (state as dynamic).profile;
+    } else if (profileCubit.cachedProfile != null) {
+      // ✅ استخدام البيانات المخزنة في الكاش
+      profile = profileCubit.cachedProfile!;
     } else {
       profile = UserProfileModel(
         id: 0,
@@ -99,13 +99,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _shareZodiac = profile.shareZodiac;
     _selectedDate = profile.birthdate;
     
-    // نستخدم القيم مباشرة وسيتم تحديثها عند بناء القوائم المنسدلة
     _selectedZodiacValue = profile.zodiac.isNotEmpty ? profile.zodiac : null;
     _selectedCountryValue = profile.country.isNotEmpty ? profile.country : null;
     
     _selectedInterestsIds = profile.interests.map((interest) => interest.id).toList();
     
-    // حفظ روابط الصور الحالية
     _currentProfileImageUrl = profile.image;
     _currentCoverImageUrl = profile.cover;
     
@@ -254,7 +252,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  // دالة مساعدة لبناء قائمة الأبراج بدون تكرار
   List<DropdownMenuItem<String>> _buildZodiacItems(List<Map<String, dynamic>> zodiacs) {
     final items = <DropdownMenuItem<String>>[
       DropdownMenuItem<String>(
@@ -263,7 +260,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
     ];
     
-    // استخدام Set لإزالة التكرارات
     final seen = <String>{};
     for (var zodiac in zodiacs) {
       final name = zodiac['name']?.toString() ?? '';
@@ -281,7 +277,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return items;
   }
 
-  // دالة مساعدة لبناء قائمة الدول
   List<DropdownMenuItem<String>> _buildCountryItems() {
     return [
       DropdownMenuItem<String>(
@@ -297,7 +292,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ];
   }
 
-  // دالة لبناء زر الاختيار مع الصورة
   Widget _buildImagePickerButton(
     BuildContext context,
     bool isProfile,
@@ -328,7 +322,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
         ),
-      
+        if (currentImageUrl != null && currentImageUrl!.isNotEmpty)
+          PopupMenuItem<String>(
+            value: 'remove',
+            child: Row(
+              children: [
+                Icon(Icons.delete, color: Colors.red),
+                SizedBox(width: 8),
+                Text('حذف الصورة'),
+              ],
+            ),
+          ),
       ],
       onSelected: (value) {
         if (value == 'camera') {
@@ -340,9 +344,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             if (isProfile) {
               _profileImagePath = null;
               _profileImageChanged = true;
+              _currentProfileImageUrl = null;
             } else {
               _coverImagePath = null;
               _coverImageChanged = true;
+              _currentCoverImageUrl = null;
             }
           });
         }
@@ -359,9 +365,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             SnackBar(content: Text(state.message)),
           );
           
-          // تحديث ProfileCubit بالبيانات الجديدة
+          // ✅ تحديث ProfileCubit باستخدام clearCache بدلاً من clearProfile
+          final profileCubit = context.read<ProfileCubit>();
+          profileCubit.clearCache();
+          
+          // ✅ إذا كان هناك بروفايل محدث، نضيفه للكاش
           if (state.updatedProfile != null) {
-            context.read<ProfileCubit>().clearProfile();
+            // ✅ نرسل إشارة تحديث لشاشة البروفايل
             Navigator.pop(context, true);
           }
         } else if (state is UpdateProfileError) {
@@ -412,27 +422,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       padding: EdgeInsets.all(16),
       child: Column(
         children: [
-          // صورة الغلاف
           _buildCoverImageSection(),
           SizedBox(height: 100),
           
-          // صورة الملف الشخصي
           _buildProfileImageSection(),
           SizedBox(height: 20),
           
-          // البيانات الشخصية
           _buildPersonalInfoSection(availableZodiacs),
           SizedBox(height: 20),
           
-          // الاهتمامات
           _buildInterestsSection(state),
           SizedBox(height: 20),
           
-          // إعدادات الخصوصية
           _buildPrivacySection(),
           SizedBox(height: 30),
           
-          // زر الحفظ
           _buildSaveButton(state),
         ],
       ),
@@ -440,21 +444,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildCoverImageSection() {
-    // تحديد الصورة المعروضة
     Widget? coverImage;
-    String? imagePath;
     
     if (_coverImageChanged && _coverImagePath != null) {
-      // إذا تم اختيار صورة جديدة
       coverImage = Image.file(
         File(_coverImagePath!),
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.cover,
       );
-      imagePath = _coverImagePath;
     } else if (_currentCoverImageUrl != null && _currentCoverImageUrl!.isNotEmpty) {
-      // إذا كانت هناك صورة حالية
       coverImage = Image.network(
         _currentCoverImageUrl!,
         width: double.infinity,
@@ -523,11 +522,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildProfileImageSection() {
-    // تحديد الصورة المعروضة
     Widget? profileImage;
     
     if (_profileImageChanged && _profileImagePath != null) {
-      // إذا تم اختيار صورة جديدة
       profileImage = Image.file(
         File(_profileImagePath!),
         width: double.infinity,
@@ -535,7 +532,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         fit: BoxFit.cover,
       );
     } else if (_currentProfileImageUrl != null && _currentProfileImageUrl!.isNotEmpty) {
-      // إذا كانت هناك صورة حالية
       profileImage = Image.network(
         _currentProfileImageUrl!,
         width: double.infinity,
@@ -605,11 +601,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final zodiacItems = _buildZodiacItems(availableZodiacs);
     final countryItems = _buildCountryItems();
     
-    // التحقق من أن القيمة المختارة موجودة في القائمة
     if (_selectedZodiacValue != null) {
       final exists = zodiacItems.any((item) => item.value == _selectedZodiacValue);
       if (!exists) {
-        // إذا لم تكن موجودة، نضيفها كخيار مؤقت
         zodiacItems.add(
           DropdownMenuItem<String>(
             value: _selectedZodiacValue,
@@ -619,7 +613,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     }
     
-    // نفس الشيء للدولة
     if (_selectedCountryValue != null) {
       final exists = countryItems.any((item) => item.value == _selectedCountryValue);
       if (!exists && _selectedCountryValue!.isNotEmpty) {
@@ -676,7 +669,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         SizedBox(height: 16),
         
-        // تاريخ الميلاد
         InkWell(
           onTap: () => _selectDate(context),
           child: Container(
@@ -704,7 +696,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         SizedBox(height: 16),
         
-        // الدولة
         DropdownButtonFormField<String>(
           value: _selectedCountryValue,
           decoration: InputDecoration(
@@ -723,7 +714,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         SizedBox(height: 16),
         
-        // البرج
         DropdownButtonFormField<String>(
           value: _selectedZodiacValue,
           decoration: InputDecoration(
@@ -749,7 +739,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         SizedBox(height: 16),
         
-        // وصف البرج
         _buildTextField(
           controller: _zodiacDescriptionController,
           label: 'وصف البرج',

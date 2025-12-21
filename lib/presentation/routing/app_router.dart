@@ -1,4 +1,5 @@
 import 'package:app_1/presentation/screens/auth/forgetpassword/screen/forgot_password_screen.dart';
+import 'package:app_1/presentation/screens/auth/regesteration/screens/RegisterStep1Screen.dart';
 import 'package:app_1/presentation/screens/main_app/explore/categories_screen.dart';
 import 'package:app_1/presentation/screens/main_app/main_screen.dart';
 import 'package:app_1/presentation/screens/main_app/onboarding/onboarding_screen.dart';
@@ -30,7 +31,7 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => LoginScreen());
       
       case '/register':
-        return MaterialPageRoute(builder: (_) => RegisterScreen());
+        return MaterialPageRoute(builder: (_) => RegisterStep1Screen());
         case '/categories':
         return MaterialPageRoute(builder: (_) => CategoriesScreen());
         case '/profile':
