@@ -555,9 +555,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           SizedBox(width: 15),
-                          Text(
-                            '${_getZodiacEmoji(profile.zodiac)}',
-                            style: TextStyle(fontSize: 30),
+                          GestureDetector(
+                            onTap: () {
+
+                            },
+                             child: _getZodiacEmoji(profile.zodiac, profile.shareZodiac)
                           ),
                         ],
                       ),
@@ -595,8 +597,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             SizedBox(height: 20),
 
-            if (profile.shareZodiac && profile.zodiac.isNotEmpty)
-              _buildZodiacInfoCard(profile),
+            profile.shareZodiac && profile.zodiac.isNotEmpty
+                ? _buildZodiacInfoCard(profile)
+                : SizedBox(),
 
             SizedBox(height: 24),
             _buildStatsRow(profile.statistics),
@@ -649,10 +652,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
                 child: Center(
-                  child: Text(
-                    _getZodiacEmoji(profile.zodiac),
-                    style: TextStyle(fontSize: 28),
-                  ),
+                  child: _getZodiacEmoji(profile.zodiac, profile.shareZodiac),
                 ),
               ),
 
@@ -1024,18 +1024,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Padding(
-                                  padding: 
+                                  padding:
                                       context
-                                    .watch<LanguageProvider>()
-                                    .getCurrentLanguageName() ==
-                                'العربية'
-                            ?
-                                   EdgeInsets.only(right: 20.0):
-                                   EdgeInsets.only(left: 20.0)
-                                   ,
+                                                  .watch<LanguageProvider>()
+                                                  .getCurrentLanguageName() ==
+                                              'العربية'
+                                          ? EdgeInsets.only(right: 20.0)
+                                          : EdgeInsets.only(left: 20.0),
                                   child: _buildUserInfo(telegram, profile),
                                 ),
-                                _buildSettingsMenu(telegram),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '#${telegram.number}',
+                                      style: TextStyle(
+                                        fontSize: 13.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                    _buildSettingsMenu(telegram),
+                                  ],
+                                ),
                               ],
                             ),
                             SizedBox(height: 15.h),
@@ -1504,48 +1514,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  String _getZodiacEmoji(String zodiac) {
-    switch (zodiac.toLowerCase()) {
-      case 'aries':
-      case 'الحمل':
-        return '♈️';
-      case 'taurus':
-      case 'الثور':
-        return '♉️';
-      case 'gemini':
-      case 'الجوزاء':
-        return '♊️';
-      case 'cancer':
-      case 'السرطان':
-        return '♋️';
-      case 'leo':
-      case 'الأسد':
-        return '♌️';
-      case 'virgo':
-      case 'العذراء':
-        return '♍️';
-      case 'libra':
-      case 'الميزان':
-        return '♎️';
-      case 'scorpio':
-      case 'العقرب':
-        return '♏️';
-      case 'sagittarius':
-      case 'القوس':
-        return '♐️';
-      case 'capricorn':
-      case 'الجدي':
-        return '♑️';
-      case 'aquarius':
-      case 'الدلو':
-        return '♒️';
-      case 'pisces':
-      case 'الحوت':
-        return '♓️';
-      default:
-        return '♈️';
-    }
+Text _getZodiacEmoji(String zodiac, bool shareZodiac) {
+  String emoji;
+  
+  switch (zodiac.toLowerCase()) {
+    case 'aries':
+    case 'الحمل':
+      emoji = '♈️';
+      break;
+    case 'taurus':
+    case 'الثور':
+      emoji = '♉️';
+      break;
+    case 'gemini':
+    case 'الجوزاء':
+      emoji = '♊️';
+      break;
+    case 'cancer':
+    case 'السرطان':
+      emoji = '♋️';
+      break;
+    case 'leo':
+    case 'الأسد':
+      emoji = '♌️';
+      break;
+    case 'virgo':
+    case 'العذراء':
+      emoji = '♍️';
+      break;
+    case 'libra':
+    case 'الميزان':
+      emoji = '♎️';
+      break;
+    case 'scorpio':
+    case 'العقرب':
+      emoji = '♏️';
+      break;
+    case 'sagittarius':
+    case 'القوس':
+      emoji = '♐️';
+      break;
+    case 'capricorn':
+    case 'الجدي':
+      emoji = '♑️';
+      break;
+    case 'aquarius':
+    case 'الدلو':
+      emoji = '♒️';
+      break;
+    case 'pisces':
+    case 'الحوت':
+      emoji = '♓️';
+      break;
+    default:
+      emoji = '♈️';
   }
+  
+  return Text(
+    emoji,
+    style: TextStyle(
+      fontSize: 30,
+      color: shareZodiac ? _getZodiacColor(zodiac) : Colors.grey[600], // اللون الحقيقي إذا كان true، وإلا رمادي
+    ),
+  );
+}
 
   Color _getZodiacColor(String zodiac) {
     switch (zodiac.toLowerCase()) {
