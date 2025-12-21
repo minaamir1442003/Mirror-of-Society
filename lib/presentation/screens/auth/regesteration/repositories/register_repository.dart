@@ -25,13 +25,14 @@ class RegisterRepository {
         MapEntry('password', request.password),
         MapEntry('password_confirmation', request.passwordConfirmation),
         MapEntry('phone', request.phone),
-        MapEntry('zodiac', request.zodiac), // ✅ هنا
-        MapEntry('zodiac_description', request.zodiacDescription), // ✅ وهنا
+        MapEntry('zodiac', request.zodiac),
+        MapEntry('zodiac_description', request.zodiacDescription),
         MapEntry('share_location', request.shareLocation ? '1' : '0'),
         MapEntry('share_zodiac', request.shareZodiac ? '1' : '0'),
         MapEntry('birthdate', request.birthdate),
         MapEntry('country', request.country),
       ]);
+      
       // 3. إضافة الـ bio إذا كانت موجودة
       if (request.bio != null && request.bio!.isNotEmpty) {
         formData.fields.add(MapEntry('bio', request.bio!));
@@ -59,7 +60,7 @@ class RegisterRepository {
         formData.files.add(MapEntry('cover', coverFile));
       }
 
-      // 6. Send Request - استخدم _dioClient.dio
+      // 6. Send Request
       print('📤 Sending registration request...');
       final response = await _dioClient.dio.post(
         '/register',
@@ -72,10 +73,37 @@ class RegisterRepository {
       print('✅ Response received: ${response.statusCode}');
       print('📝 Response data: ${response.data}');
 
-      // 7. Handle Response
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = response.data;
+      // 7. Handle Response - هنا التعديل المهم
+      final responseData = response.data;
+      
+      // إذا كان الـstatus = false من السيرفر
+      if (responseData['status'] == false) {
+        return RegisterResponse(
+          status: false,
+          message: responseData['message'] ?? 'Registration failed',
+          token: '',
+          user: UserModel.fromJson({
+            'id': 0,
+            'firstname': '',
+            'lastname': '',
+            'email': '',
+            'phone': '',
+            'bio': '',
+            'zodiac': '',
+            'zodiac_description': '',
+            'share_location': 0,
+            'share_zodiac': 0,
+            'birthdate': '',
+            'country': '',
+            'is_verified': 0,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          }),
+        );
+      }
 
+      // إذا كان الـstatus = true (نجاح)
+      if (responseData['status'] == true) {
         // Create user data from Request for local storage
         final userData = {
           'id': 0,
@@ -102,25 +130,34 @@ class RegisterRepository {
           token: responseData['token'] ?? '',
           user: UserModel.fromJson(userData),
         );
-      } else {
-        throw Exception('فشل التسجيل: ${response.statusCode}');
       }
+      
+      // في حالة لم يكن هناك status أو true ولا false
+      throw Exception('Invalid response format from server');
+
     } on DioException catch (e) {
       print('❌ Dio Error: ${e.message}');
       print('📊 Response: ${e.response?.data}');
 
       if (e.response != null) {
-        // Handle Validation Errors (422)
+        // حالة 422 (Validation Errors)
         if (e.response!.statusCode == 422) {
           final errors = e.response!.data['errors'];
           final errorMessage = _formatValidationErrors(errors);
           throw Exception(errorMessage);
         }
 
-        // Handle other errors
-        final errorMessage =
-            e.response!.data['message'] ?? e.message ?? 'حدث خطأ غير معروف';
-        throw Exception(errorMessage);
+        // حالة 400-500 أخرى
+        final responseData = e.response!.data;
+        if (responseData is Map && responseData.containsKey('status')) {
+          // إذا كان الرد منظم بنفس تنسيق API
+          final errorMessage = responseData['message'] ?? e.message ?? 'حدث خطأ غير معروف';
+          throw Exception(errorMessage);
+        } else {
+          // إذا كان الرد غير منظم
+          final errorMessage = responseData?.toString() ?? e.message ?? 'فشل الاتصال بالخادم';
+          throw Exception(errorMessage);
+        }
       }
 
       throw Exception('فشل الاتصال بالخادم: ${e.message}');
@@ -130,15 +167,53 @@ class RegisterRepository {
     }
   }
 
-  String _formatValidationErrors(Map<String, dynamic> errors) {
-    final messages = <String>[];
-    errors.forEach((field, errorList) {
-      if (errorList is List) {
-        for (var error in errorList) {
-          messages.add('$field: $error');
-        }
+String _formatValidationErrors(Map<String, dynamic> errors) {
+  print('📝 Formatting validation errors: $errors');
+  
+  final messages = <String>[];
+  
+  // التعامل مع أنواع مختلفة من errors
+  errors.forEach((field, errorList) {
+    print('🔍 Field: $field, ErrorList: $errorList');
+    
+    if (errorList is List) {
+      for (var error in errorList) {
+        final fieldName = _getFieldDisplayName(field);
+        messages.add('$fieldName: $error');
       }
-    });
-    return messages.join('\n');
-  }
+    } else if (errorList is String) {
+      final fieldName = _getFieldDisplayName(field);
+      messages.add('$fieldName: $errorList');
+    } else {
+      // If errorList is not List or String, convert to string
+      final fieldName = _getFieldDisplayName(field);
+      messages.add('$fieldName: $errorList');
+    }
+  });
+  
+  final result = messages.join('\n');
+  print('✅ Formatted error message: $result');
+  return result;
+}
+
+String _getFieldDisplayName(String field) {
+  final fieldMap = {
+    'firstname': 'First name',
+    'lastname': 'Last name',
+    'email': 'Email',
+    'password': 'Password',
+    'password_confirmation': 'Password confirmation',
+    'phone': 'Phone number',
+    'bio': 'Bio',
+    'zodiac': 'Zodiac',
+    'zodiac_description': 'Zodiac description',
+    'birthdate': 'Birth date',
+    'country': 'Country',
+    'interests': 'Interests',
+    'image': 'Profile image',
+    'cover': 'Cover image',
+  };
+  
+  return fieldMap[field] ?? field;
+}
 }

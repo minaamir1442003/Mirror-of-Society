@@ -49,7 +49,7 @@ class _BoltCardState extends State<BoltCard> {
         _currentLikes--;
       }
     });
-    
+
     // استدعاء دالة الإعجاب إذا كانت موجودة
     if (widget.bolt.onLikePressed != null) {
       widget.bolt.onLikePressed!();
@@ -65,7 +65,7 @@ class _BoltCardState extends State<BoltCard> {
         _currentShares--;
       }
     });
-    
+
     // استدعاء دالة المشاركة إذا كانت موجودة
     if (widget.bolt.onSharePressed != null) {
       widget.bolt.onSharePressed!();
@@ -78,7 +78,7 @@ class _BoltCardState extends State<BoltCard> {
       widget.bolt.onCommentPressed!();
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -288,7 +288,7 @@ class _BoltCardState extends State<BoltCard> {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 5),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // الشريط الجانبي الملون
           _buildCategorySideBar(),
@@ -296,15 +296,17 @@ class _BoltCardState extends State<BoltCard> {
           SizedBox(width: 7.w),
 
           // البطاقة الرئيسية
-          Column(
-            children: [
-              _buildMainCard(),
-              SizedBox(height: 10),
-              _buildActionsSection(),
-            ],
+          Expanded(
+            child: Column(
+              children: [
+                _buildMainCard(),
+                SizedBox(height: 10),
+                _buildActionsSection(),
+              ],
+            ),
           ),
         ],
-      )
+      ),
     );
   }
 
@@ -325,67 +327,80 @@ class _BoltCardState extends State<BoltCard> {
   }
 
   Widget _buildMainCard() {
-    return IntrinsicHeight(
-      child: Container(
-        width: 310.w,
-        decoration: BoxDecoration(
-          borderRadius:
-              context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية'
-                  ? BorderRadius.only(topRight: Radius.circular(100.r))
-                  : BorderRadius.only(topLeft: Radius.circular(100.r)),
-          boxShadow: [
-            BoxShadow(
-              color: widget.bolt.categoryColor.withOpacity(0.8),
-              blurRadius: 8.r,
-              spreadRadius: 2.r,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              top: 0,
-              child:
-                  context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية'
-                      ? Image.asset(
-                        "assets/image/9c2b5260-39de-4527-a927-d0590bfdcbeb.jpg",
-                        fit: BoxFit.fill,
-                      )
-                      : Image.asset(
-                        "assets/image/df90fd6d-5043-4f3f-af7b-8699f428b253.jpg",
-                        fit: BoxFit.fill,
-                      ),
-            ),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [_buildContentSection()],
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(minHeight: 90.h),
+      decoration: BoxDecoration(
+        borderRadius:
+            context.watch<LanguageProvider>().getCurrentLanguageName() ==
+                    'العربية'
+                ? BorderRadius.only(topRight: Radius.circular(100.r))
+                : BorderRadius.only(topLeft: Radius.circular(100.r)),
+        boxShadow: [
+          BoxShadow(
+            color: widget.bolt.categoryColor.withOpacity(0.8),
+            blurRadius: 8.r,
+            spreadRadius: 2.r,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildContentSection() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            _buildUserInfo(),
-            // المحتوى النصي
-            _buildContentText(),
-          ],
-        ),
-        // صورة المستخدم واسمه
-        SizedBox(width: 15),
-        // قائمة الإعدادات
-        _buildSettingsMenu(),
-      ],
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child:
+                context.watch<LanguageProvider>().getCurrentLanguageName() ==
+                        'العربية'
+                    ? Image.asset(
+                      "assets/image/9c2b5260-39de-4527-a927-d0590bfdcbeb.jpg",
+                      fit: BoxFit.fill,
+                    )
+                    : Image.asset(
+                      "assets/image/df90fd6d-5043-4f3f-af7b-8699f428b253.jpg",
+                      fit: BoxFit.fill,
+                    ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 5, vertical: 10.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [Padding(
+                    padding: 
+                    context.watch<LanguageProvider>().getCurrentLanguageName() ==
+                    'العربية'
+                ?
+                     EdgeInsets.only(right: 20.0):
+                     EdgeInsets.only(left: 20.0)
+                     ,
+                    child: _buildUserInfo(),
+                  ), _buildSettingsMenu()],
+                ),
+                SizedBox(height: 15.h),
+                Flexible(
+                  child: Container(
+                    alignment: Alignment.center,
+                    child: Text(
+                      widget.bolt.content,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -394,86 +409,92 @@ class _BoltCardState extends State<BoltCard> {
       onTap: () {
         _navigateToUserProfile(context);
       },
-      child: Stack(
+      child: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(1.0),
-            child: Container(
-              width: 80.w,
-                  
-              padding: EdgeInsets.only(top: 5),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 20.r,
-                    backgroundImage: widget.bolt.userImage.startsWith('http')
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 23.r,
+                backgroundImage:
+                    widget.bolt.userImage.startsWith('http')
                         ? NetworkImage(widget.bolt.userImage)
                         : AssetImage(widget.bolt.userImage) as ImageProvider,
-                  ),
-                  SizedBox(height: 7.h),
-                  Text(
-                    widget.bolt.userName,
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  
-                
-                
-                  
-                  Text(
-                  _getTimeAgo(widget.bolt.createdAt),
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
               ),
-            ),
+              context.watch<LanguageProvider>().getCurrentLanguageName() ==
+                        'العربية'
+                    ?
+              Positioned(
+                bottom: -4,
+                left: -2,
+                child: Icon(
+                  Icons.bookmark,
+                  color: _getRankColor(widget.bolt.userRank.toString()),
+                  size: 22.sp,
+                ),
+              ):
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Icon(
+                  Icons.bookmark,
+                  color: _getRankColor(widget.bolt.userRank.toString()),
+                  size: 20.sp,
+                ),
+              ),
+            ],
           ),
-          context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية'
-              ? Positioned(
-                top: 25.h,
-                left: 20.w,
-                child: Icon(Icons.bookmark, color: _getRankColor(widget.bolt.userRank.toString()), size: 22.sp),
-              )
-              : Positioned(
-                bottom: 35.h,
-                right: 15.w,
-                child: Icon(Icons.bookmark, color:_getRankColor(widget.bolt.userRank.toString()), size: 22.sp),
+          SizedBox(width: 8.w),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.bolt.userName,
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
               ),
+              Text(
+                _getTimeAgo(widget.bolt.createdAt),
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
-String _formatDate(DateTime date) {
-  return '${date.day}/${date.month}/${date.year}';
-}
-String _getTimeAgo(DateTime date) {
-  final now = DateTime.now();
-  final difference = now.difference(date);
-  
-  if (difference.inDays > 365) {
-    return 'قبل ${(difference.inDays / 365).floor()} سنة';
-  } else if (difference.inDays > 30) {
-    return 'قبل ${(difference.inDays / 30).floor()} شهر';
-  } else if (difference.inDays > 0) {
-    return 'قبل ${difference.inDays} يوم';
-  } else if (difference.inHours > 0) {
-    return 'قبل ${difference.inHours} ساعة';
-  } else if (difference.inMinutes > 0) {
-    return 'قبل ${difference.inMinutes} دقيقة';
-  } else {
-    return 'الآن';
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
-}
-Color _getRankColor(String rank) {
-  switch (rank) {
+
+  String _getTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 365) {
+      return 'قبل ${(difference.inDays / 365).floor()} سنة';
+    } else if (difference.inDays > 30) {
+      return 'قبل ${(difference.inDays / 30).floor()} شهر';
+    } else if (difference.inDays > 0) {
+      return 'قبل ${difference.inDays} يوم';
+    } else if (difference.inHours > 0) {
+      return 'قبل ${difference.inHours} ساعة';
+    } else if (difference.inMinutes > 0) {
+      return 'قبل ${difference.inMinutes} دقيقة';
+    } else {
+      return 'الآن';
+    }
+  }
+
+  Color _getRankColor(String rank) {
+    switch (rank) {
       case '0':
         return Colors.grey;
       case '1':
@@ -483,37 +504,14 @@ Color _getRankColor(String rank) {
       default:
         return Colors.blue;
     }
-}
-
-  Widget _buildContentText() {
-    return Container(
-      width: 210.w,
-      padding: EdgeInsets.only(top: 15),
-      child: Text(
-        widget.bolt.content,
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
-      ),
-    );
   }
 
   Widget _buildSettingsMenu() {
-    return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          PopupMenuButton<String>(
-            padding: EdgeInsets.zero,
-            icon: Icon(
-              Icons.more_vert,
-              size: 20.sp,
-              color: Colors.grey.shade600,
-            ),
-            itemBuilder: (context) => _buildMenuItems(),
-            onSelected: (value) => _handleMenuSelection(value, context),
-          ),
-        ],
-      ),
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      icon: Icon(Icons.more_vert, size: 20.sp, color: Colors.grey.shade600),
+      itemBuilder: (context) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuSelection(value, context),
     );
   }
 
@@ -607,45 +605,46 @@ Color _getRankColor(String rank) {
   }
 
   void _showSnackBar(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color)
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   Widget _buildActionsSection() {
     return Container(
-      width: 280.w,
-      child: Padding(
-        padding: EdgeInsets.only(left: 10.w, right: 10.w),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildActionButton(
-              icon: Icons.emoji_objects,
-              label: _currentLikes > 0 ? _currentLikes.toString() : 'ضوء',
-              isActive: _isLiked,
-              activeColor: Colors.amber.shade700,
-              onTap: _toggleLike,
-            ),
-            _buildActionButton(
-              icon: Icons.chat_bubble_outline,
-              label: widget.bolt.comments > 0 ? widget.bolt.comments.toString() : 'تعليق',
-              onTap: () => _showCommentsDialog(context),
-            ),
-            _buildActionButton(
-              icon: Icons.repeat,
-              label: _currentShares > 0 ? _currentShares.toString() : 'شارك',
-              isActive: _isReposted,
-              activeColor: Colors.green,
-              onTap: _toggleRepost,
-            ),
-            _buildActionButton(
-              icon: Icons.send_outlined,
-              label: 'إرسال',
-              onTap: () => print('تم الإرسال'),
-            ),
-          ],
-        ),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 10.w),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildActionButton(
+            icon: Icons.emoji_objects,
+            label: _currentLikes > 0 ? _currentLikes.toString() : 'ضوء',
+            isActive: _isLiked,
+            activeColor: Colors.amber.shade700,
+            onTap: _toggleLike,
+          ),
+          _buildActionButton(
+            icon: Icons.chat_bubble_outline,
+            label:
+                widget.bolt.comments > 0
+                    ? widget.bolt.comments.toString()
+                    : 'تعليق',
+            onTap: () => _showCommentsDialog(context),
+          ),
+          _buildActionButton(
+            icon: Icons.repeat,
+            label: _currentShares > 0 ? _currentShares.toString() : 'شارك',
+            isActive: _isReposted,
+            activeColor: Colors.green,
+            onTap: _toggleRepost,
+          ),
+          _buildActionButton(
+            icon: Icons.send_outlined,
+            label: 'إرسال',
+            onTap: () => print('تم الإرسال'),
+          ),
+        ],
       ),
     );
   }
@@ -664,7 +663,8 @@ Color _getRankColor(String rank) {
         children: [
           Icon(
             icon,
-            color: isActive ? (activeColor ?? Colors.blue) : Colors.grey.shade600,
+            color:
+                isActive ? (activeColor ?? Colors.blue) : Colors.grey.shade600,
             size: 20.sp,
           ),
           SizedBox(height: 4.h),
@@ -673,7 +673,10 @@ Color _getRankColor(String rank) {
             style: TextStyle(
               fontSize: 10.sp,
               fontWeight: FontWeight.w500,
-              color: isActive ? (activeColor ?? Colors.blue) : Colors.grey.shade700,
+              color:
+                  isActive
+                      ? (activeColor ?? Colors.blue)
+                      : Colors.grey.shade700,
             ),
           ),
         ],
@@ -685,10 +688,12 @@ Color _getRankColor(String rank) {
     final user = UserModel(
       id: int.tryParse(widget.bolt.id) ?? 0,
       firstname: widget.bolt.userName.split(' ').first,
-      lastname: widget.bolt.userName.split(' ').length > 1 
-          ? widget.bolt.userName.split(' ').last 
-          : 'User',
-      email: '${widget.bolt.userName.replaceAll(' ', '_').toLowerCase()}@example.com',
+      lastname:
+          widget.bolt.userName.split(' ').length > 1
+              ? widget.bolt.userName.split(' ').last
+              : 'User',
+      email:
+          '${widget.bolt.userName.replaceAll(' ', '_').toLowerCase()}@example.com',
       phone: null,
       bio: 'مستخدم نشط في تطبيق البرقيات 💻 | مهتم بالتكنولوجيا والبرمجة',
       image: widget.bolt.userImage,
@@ -703,8 +708,7 @@ Color _getRankColor(String rank) {
       emailVerifiedAt: DateTime.now().subtract(Duration(days: 30)),
       createdAt: DateTime.now().subtract(Duration(days: 365)),
       updatedAt: DateTime.now(),
-      
-      // الحقول الجديدة
+
       username: widget.bolt.userName.replaceAll(' ', '_').toLowerCase(),
       boltCount: 42,
       followersCount: 1200,

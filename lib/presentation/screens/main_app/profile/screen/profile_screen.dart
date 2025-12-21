@@ -1,6 +1,5 @@
-import 'package:app_1/core/constants/shared%20pref.dart';
+// lib/presentation/screens/main_app/profile/screen/profile_screen.dart
 import 'package:app_1/presentation/providers/language_provider.dart';
-import 'package:app_1/presentation/screens/main_app/profile/cubits/auth_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/models/user_profile_model.dart';
 import 'package:flutter/material.dart';
@@ -24,11 +23,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
 
+  // ✅ إضافة هذا المتغير لتتبع أول تحميل
+  bool _firstLoadDone = false;
+
   @override
   void initState() {
     super.initState();
-    _loadProfile();
     _setupScrollController();
+
+    // ✅ التحميل مرة واحدة فقط عند بداية الشاشة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_firstLoadDone) {
+        _loadInitialProfile();
+        _firstLoadDone = true;
+      }
+    });
   }
 
   void _setupScrollController() {
@@ -42,15 +51,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  void _loadProfile() {
+  void _loadInitialProfile() {
     final profileCubit = context.read<ProfileCubit>();
-    _isLoadingMore = false;
-    _hasMoreData = true;
 
-    if (widget.userId == null) {
-      profileCubit.getMyProfile();
+    // ✅ فقط إذا لم يكن هناك بيانات مخزنة
+    if (profileCubit.cachedProfile == null) {
+      print('📱 ProfileScreen: No cached data, loading from server...');
+
+      if (widget.userId == null) {
+        profileCubit.getMyProfile();
+      } else {
+        profileCubit.getUserProfile(widget.userId!);
+      }
     } else {
-      profileCubit.getUserProfile(widget.userId!);
+      print('📱 ProfileScreen: Using cached data');
     }
   }
 
@@ -59,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (!_isLoadingMore && _hasMoreData && profileCubit.hasMore) {
       _isLoadingMore = true;
-      print('🔄 Loading more data...');
+      print('🔄 Loading more telegrams...');
 
       if (widget.userId == null) {
         profileCubit.getMyProfile(loadMore: true).then((_) {
@@ -85,7 +99,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: BlocConsumer<ProfileCubit, ProfileState>(
         listener: (context, state) {
           if (state is ProfileError) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.error)));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.error)));
           }
 
           if (state is ProfileLoaded || state is ProfileUpdated) {
@@ -94,6 +110,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         },
         builder: (context, state) {
+          final profileCubit = context.read<ProfileCubit>();
+
+          if (profileCubit.cachedProfile != null &&
+              state is! ProfileLoading &&
+              state is! ProfileLoadingMore) {
+            return _buildProfileContentWithData(profileCubit.cachedProfile!);
+          }
+
           if (state is ProfileLoading) {
             return _buildLoading();
           } else if (state is ProfileLoadingMore) {
@@ -103,8 +127,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
           } else if (state is ProfileLoaded || state is ProfileUpdated) {
             return _buildProfileContent(state);
           }
+
           return _buildLoading();
         },
+      ),
+    );
+  }
+
+  Widget _buildProfileContentWithData(UserProfileModel profile) {
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage(
+            "assets/image/154eb93e-c23b-41be-a5d2-c50ef02739d3.png",
+          ),
+          repeat: ImageRepeat.repeat,
+          opacity: 0.5,
+          colorFilter: ColorFilter.mode(
+            Colors.grey[200]!.withOpacity(0.2),
+            BlendMode.modulate,
+          ),
+        ),
+      ),
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 250,
+            floating: false,
+            pinned: true,
+            automaticallyImplyLeading: false,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildCoverImage(profile),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                if (widget.userId == null && profile.rank == "0")
+                  _buildVerificationBox(),
+                _buildProfileDetails(profile),
+              ],
+            ),
+          ),
+          _buildTelegramsSliver(profile.telegrams, profile),
+          _buildLoadingMoreIndicator(_isLoadingMore),
+        ],
       ),
     );
   }
@@ -130,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(state.error, textAlign: TextAlign.center),
           SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _loadProfile,
+            onPressed: _loadInitialProfile,
             child: Text('إعادة المحاولة'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
@@ -147,7 +215,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool isLoadingMore = false;
 
     if (state is ProfileLoadingMore) {
-      profile = _getCurrentProfileFromCubit();
+      final cubit = context.read<ProfileCubit>();
+      profile = cubit.cachedProfile!;
       telegrams = state.telegrams;
       isLoadingMore = true;
     } else if (state is ProfileLoaded) {
@@ -157,40 +226,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       profile = state.profile;
       telegrams = profile.telegrams;
     } else {
-      profile = _getCurrentProfileFromCubit();
-      telegrams = [];
+      return _buildLoading();
     }
 
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
-        SliverAppBar(
-          expandedHeight: 250,
-          floating: false,
-          pinned: true,
-          automaticallyImplyLeading: false,
-          flexibleSpace: FlexibleSpaceBar(
-            background: _buildCoverImage(profile),
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage(
+            "assets/image/154eb93e-c23b-41be-a5d2-c50ef02739d3.png",
+          ),
+          repeat: ImageRepeat.repeat,
+          opacity: 0.5,
+          colorFilter: ColorFilter.mode(
+            Colors.grey[200]!.withOpacity(0.2),
+            BlendMode.modulate,
           ),
         ),
-        SliverToBoxAdapter(
-          child: Column(
-            children: [
-              // مربع توثيق الحساب (يظهر فقط إذا كان الرانك = 0)
-              if (widget.userId == null && profile.rank == "0")
-                _buildVerificationBox(),
-              
-              _buildProfileDetails(profile),
-            ],
+      ),
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 250,
+            floating: false,
+            pinned: true,
+            automaticallyImplyLeading: false,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildCoverImage(profile),
+            ),
           ),
-        ),
-        _buildTelegramsSliver(telegrams, profile),
-        _buildLoadingMoreIndicator(isLoadingMore),
-      ],
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                if (widget.userId == null && profile.rank == "0")
+                  _buildVerificationBox(),
+                _buildProfileDetails(profile),
+              ],
+            ),
+          ),
+          _buildTelegramsSliver(telegrams, profile),
+          _buildLoadingMoreIndicator(isLoadingMore),
+        ],
+      ),
     );
   }
 
-  // مربع توثيق الحساب المعدل (تصميم أهدأ)
+  // مربع توثيق الحساب
   Widget _buildVerificationBox() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -213,7 +294,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // العنوان مع أيقونة
           Row(
             children: [
               Container(
@@ -245,20 +325,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SizedBox(height: 2),
                     Text(
                       'ارتقِ برتبتك إلى المستوى التالي',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.darkGray,
-                      ),
+                      style: TextStyle(fontSize: 13, color: AppTheme.darkGray),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          
+
           SizedBox(height: 16),
-          
-          // النص التوضيحي
+
           Text(
             'توثيق حسابك يمنحك مزايا حصرية ويحسن من ظهورك في المجتمع.',
             style: TextStyle(
@@ -267,17 +343,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               height: 1.5,
             ),
           ),
-          
-          
-          
-          
-          
+
           SizedBox(height: 20),
-          
-          // الأزرار
+
           Row(
             children: [
-              // زر تفعيل الحساب
               Expanded(
                 child: Container(
                   height: 45,
@@ -293,9 +363,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   child: TextButton(
-                    onPressed: () {
-                      
-                    },
+                    onPressed: () {},
                     style: TextButton.styleFrom(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -304,11 +372,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.bolt,
-                          color: Colors.white,
-                          size: 18,
-                        ),
+                        Icon(Icons.bolt, color: Colors.white, size: 18),
                         SizedBox(width: 8),
                         Text(
                           'تفعيل الحساب',
@@ -323,23 +387,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-              
+
               SizedBox(width: 12),
-              
-              // زر تخطي
+
               Container(
                 height: 45,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey[300]!,
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: Colors.grey[300]!, width: 1.5),
                 ),
                 child: TextButton(
-                  onPressed: () {
-                  
-                  },
+                  onPressed: () {},
                   style: TextButton.styleFrom(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -367,50 +425,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          
-          SizedBox(height: 12),
-          
-        
         ],
       ),
-    );
-  }
-
-
-
-  
-
-
-
-
-
-
-
-  UserProfileModel _getCurrentProfileFromCubit() {
-    final cubit = context.read<ProfileCubit>();
-    return UserProfileModel(
-      id: 0,
-      firstname: '',
-      lastname: '',
-      email: '',
-      rank: '0',
-      phone: '',
-      bio: '',
-      image: '',
-      cover: '',
-      zodiac: '',
-      zodiacDescription: '',
-      shareLocation: false,
-      shareZodiac: false,
-      birthdate: DateTime.now(),
-      country: '',
-      interests: [],
-      statistics: ProfileStatistics(
-        followersCount: 0,
-        followingCount: 0,
-        telegramsCount: 0,
-      ),
-      telegrams: [],
     );
   }
 
@@ -419,15 +435,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         profile.cover.isNotEmpty
             ? Container(
-                width: double.infinity,
-                height: 350,
-                child: Image.network(profile.cover, fit: BoxFit.cover),
-              )
+              width: double.infinity,
+              height: 350,
+              child: Image.network(profile.cover, fit: BoxFit.cover),
+            )
             : Container(
-                width: double.infinity,
-                height: 350,
-                color: Colors.grey,
-              ),
+              width: double.infinity,
+              height: 350,
+              color: Colors.grey,
+            ),
 
         Positioned(
           right: 20,
@@ -487,12 +503,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: CircleAvatar(
               radius: 68,
               backgroundColor: Colors.white,
-              child: profile.image.isNotEmpty
-                  ? CircleAvatar(
-                      radius: 65,
-                      backgroundImage: NetworkImage(profile.image),
-                    )
-                  : CircleAvatar(backgroundColor: Colors.white),
+              child:
+                  profile.image.isNotEmpty
+                      ? CircleAvatar(
+                        radius: 65,
+                        backgroundImage: NetworkImage(profile.image),
+                      )
+                      : CircleAvatar(backgroundColor: Colors.white),
             ),
           ),
         ),
@@ -562,32 +579,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
-                if (widget.userId == null)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: Icon(Icons.edit, color: Colors.white, size: 24),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditProfileScreen(),
-                          ),
-                        ).then((value) {
-                          if (value == true) {
-                            _loadProfile();
-                          }
-                        });
-                      },
-                    ),
-                  ),
+                if (widget.userId == null) _buildEditButton(),
               ],
             ),
 
-            // البايو
             Text(
               profile.bio,
               style: TextStyle(
@@ -600,7 +595,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             SizedBox(height: 20),
 
-            // مربع معلومات البرج
             if (profile.shareZodiac && profile.zodiac.isNotEmpty)
               _buildZodiacInfoCard(profile),
 
@@ -609,25 +603,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             SizedBox(height: 32),
             _buildInterestChips(profile.interests),
-
-          
           ],
         ),
       ),
     );
   }
 
-  // دالة جديدة لعرض معلومات البرج
   Widget _buildZodiacInfoCard(UserProfileModel profile) {
     return Container(
       margin: EdgeInsets.only(bottom: 24),
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Color(0xFFF8F9FA),
-            Color(0xFFE9ECEF),
-          ],
+          colors: [Color(0xFFF8F9FA), Color(0xFFE9ECEF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -644,10 +632,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // صف يحتوي على أيقونة واسم البرج
           Row(
             children: [
-              // أيقونة البرج
               Container(
                 width: 50,
                 height: 50,
@@ -669,10 +655,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-              
+
               SizedBox(width: 16),
-              
-              // اسم البرج
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,32 +672,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Text(
                       '${_getZodiacSymbol(profile.zodiac)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          
+
           SizedBox(height: 16),
-          
-          // خط فاصل
-          Divider(
-            color: Colors.grey[300],
-            height: 1,
-            thickness: 1,
-          ),
-          
+
+          Divider(color: Colors.grey[300], height: 1, thickness: 1),
+
           SizedBox(height: 16),
-          
-          // وصف البرج
+
           Text(
-            profile.zodiacDescription.isNotEmpty 
-                ? profile.zodiacDescription 
+            profile.zodiacDescription.isNotEmpty
+                ? profile.zodiacDescription
                 : '${profile.zodiac} قادة بالفطرة. إنهم دراميون ومبدعون وواثقون من أنفسهم ومهيمنون ومن الصعب للغاية مقاومتهم.',
             style: TextStyle(
               fontSize: 16,
@@ -721,144 +697,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             textAlign: TextAlign.justify,
           ),
-          
+
           SizedBox(height: 10),
-          
-          // معلومات إضافية
+
           Row(
             children: [
-              Icon(
-                Icons.cake,
-                size: 18,
-                color: Colors.grey[600],
-              ),
+              Icon(Icons.cake, size: 18, color: Colors.grey[600]),
               SizedBox(width: 8),
               Text(
                 _formatBirthdate(profile.birthdate),
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
-              
+
               SizedBox(width: 20),
-              
-              Icon(
-                Icons.location_on,
-                size: 18,
-                color: Colors.grey[600],
-              ),
+
+              Icon(Icons.location_on, size: 18, color: Colors.grey[600]),
               SizedBox(width: 8),
               Text(
                 profile.country,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
             ],
           ),
         ],
       ),
     );
-  }
-
-  // دالة مساعدة للحصول على لون البرج
-  Color _getZodiacColor(String zodiac) {
-    switch (zodiac.toLowerCase()) {
-      case 'الحمل':
-      case 'aries':
-        return Color(0xFFE74C3C); // أحمر
-      case 'الثور':
-      case 'taurus':
-        return Color(0xFF27AE60); // أخضر
-      case 'الجوزاء':
-      case 'gemini':
-        return Color(0xFFF39C12); // أصفر
-      case 'السرطان':
-      case 'cancer':
-        return Color(0xFF3498DB); // أزرق
-      case 'الأسد':
-      case 'leo':
-        return Color(0xFFE67E22); // برتقالي
-      case 'العذراء':
-      case 'virgo':
-        return Color(0xFF9B59B6); // بنفسجي
-      case 'الميزان':
-      case 'libra':
-        return Color(0xFF1ABC9C); // فيروزي
-      case 'العقرب':
-      case 'scorpio':
-        return Color(0xFFE74C3C); // أحمر داكن
-      case 'القوس':
-      case 'sagittarius':
-        return Color(0xFFF1C40F); // ذهبي
-      case 'الجدي':
-      case 'capricorn':
-        return Color(0xFF34495E); // رمادي داكن
-      case 'الدلو':
-      case 'aquarius':
-        return Color(0xFF2980B9); // أزرق سماوي
-      case 'الحوت':
-      case 'pisces':
-        return Color(0xFF8E44AD); // أرجواني
-      default:
-        return AppTheme.primaryColor;
-    }
-  }
-
-  // دالة مساعدة للحصول على رمز البرج
-  String _getZodiacSymbol(String zodiac) {
-    switch (zodiac.toLowerCase()) {
-      case 'الحمل':
-      case 'aries':
-        return '♈ البرج الناري | 21 مارس - 19 أبريل';
-      case 'الثور':
-      case 'taurus':
-        return '♉ البرج الترابي | 20 أبريل - 20 مايو';
-      case 'الجوزاء':
-      case 'gemini':
-        return '♊ البرج الهوائي | 21 مايو - 20 يونيو';
-      case 'السرطان':
-      case 'cancer':
-        return '♋ البرج المائي | 21 يونيو - 22 يوليو';
-      case 'الأسد':
-      case 'leo':
-        return '♌ البرج الناري | 23 يوليو - 22 أغسطس';
-      case 'العذراء':
-      case 'virgo':
-        return '♍ البرج الترابي | 23 أغسطس - 22 سبتمبر';
-      case 'الميزان':
-      case 'libra':
-        return '♎ البرج الهوائي | 23 سبتمبر - 22 أكتوبر';
-      case 'العقرب':
-      case 'scorpio':
-        return '♏ البرج المائي | 23 أكتوبر - 21 نوفمبر';
-      case 'القوس':
-      case 'sagittarius':
-        return '♐ البرج الناري | 22 نوفمبر - 21 ديسمبر';
-      case 'الجدي':
-      case 'capricorn':
-        return '♑ البرج الترابي | 22 ديسمبر - 19 يناير';
-      case 'الدلو':
-      case 'aquarius':
-        return '♒ البرج الهوائي | 20 يناير - 18 فبراير';
-      case 'الحوت':
-      case 'pisces':
-        return '♓ البرج المائي | 19 فبراير - 20 مارس';
-      default:
-        return '♈';
-    }
-  }
-
-  // دالة مساعدة لتنسيق تاريخ الميلاد
-  String _formatBirthdate(DateTime birthdate) {
-    final arabicMonths = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ];
-    
-    return '${birthdate.day} ${arabicMonths[birthdate.month - 1]} ${birthdate.year}';
   }
 
   Widget _buildStatsRow(ProfileStatistics stats) {
@@ -972,44 +835,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: interests.map((interest) {
-            final color = _parseColor(interest.color);
-            return Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-                ),
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: color.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _getInterestIcon(interest.name),
-                    color: color,
-                    size: 18,
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    interest.name,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+          children:
+              interests.map((interest) {
+                final color = _parseColor(interest.color);
+                return Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
                     ),
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: color.withOpacity(0.3)),
                   ),
-                ],
-              ),
-            );
-          }).toList(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _getInterestIcon(interest.name),
+                        color: color,
+                        size: 18,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        interest.name,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
         ),
       ],
     );
   }
 
-  
+  Widget _buildEditButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        icon: Icon(Icons.edit, color: Colors.white, size: 24),
+        onPressed: _navigateToEditProfile,
+      ),
+    );
+  }
+
+  void _navigateToEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EditProfileScreen()),
+    ).then((value) {
+      if (value == true) {
+        // ✅ بعد تعديل البروفايل، نعيد تحميل البيانات فقط
+        final profileCubit = context.read<ProfileCubit>();
+        if (widget.userId == null) {
+          profileCubit.getMyProfile();
+        } else {
+          profileCubit.getUserProfile(widget.userId!);
+        }
+      }
+    });
+  }
 
   Widget _buildTelegramsSliver(
     List<TelegramModel> telegrams,
@@ -1017,7 +909,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) {
     final cubit = context.read<ProfileCubit>();
 
-    if (telegrams.isEmpty && cubit.isFirstLoad) {
+    if (telegrams.isEmpty && !cubit.isProfileLoaded) {
       return SliverToBoxAdapter(
         child: Center(
           child: Column(
@@ -1040,7 +932,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final telegram = telegrams[index];
         final orderNumber = index + 1;
         return Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 8.h),
           child: _buildTelegramCard(telegram, profile, orderNumber),
         );
       }, childCount: telegrams.length),
@@ -1054,271 +946,124 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) {
     final color = _parseColor(telegram.category.color);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // الشريط الجانبي الملون برقم الترتيب
-        Container(
-          width: 30.w,
-          height: 75.h,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15.r),
-            color: color,
-          ),
-          child: Center(
-            child: Text(
-              '#${telegram.number}',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12.sp,
-                fontWeight: FontWeight.bold,
-              ),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 18.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 30.w,
+            height: 90.h,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15.r),
+              color: color,
+            ),
+            child: Icon(
+              Icons.lightbulb_outline,
+              color: Colors.white,
+              size: 20.sp,
             ),
           ),
-        ),
 
-        SizedBox(width: 8.w),
+          SizedBox(width: 7.w),
 
-        // البطاقة الرئيسية
-        Expanded(
-          child: Column(
-            children: [
-              // البطاقة العلوية
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: context
-                              .watch<LanguageProvider>()
-                              .getCurrentLanguageName() ==
-                          'العربية'
-                      ? BorderRadius.only(topRight: Radius.circular(100.r))
-                      : BorderRadius.only(topLeft: Radius.circular(100.r)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.8),
-                      blurRadius: 8.r,
-                      spreadRadius: 2.r,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: context
-                                  .watch<LanguageProvider>()
-                                  .getCurrentLanguageName() ==
-                              'العربية'
-                          ? Image.asset(
-                              "assets/image/9c2b5260-39de-4527-a927-d0590bfdcbeb.jpg",
-                              fit: BoxFit.fill,
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  constraints: BoxConstraints(minHeight: 90.h),
+                  decoration: BoxDecoration(
+                    borderRadius:
+                        context
+                                    .watch<LanguageProvider>()
+                                    .getCurrentLanguageName() ==
+                                'العربية'
+                            ? BorderRadius.only(
+                              topRight: Radius.circular(100.r),
                             )
-                          : Image.asset(
-                              "assets/image/df90fd6d-5043-4f3f-af7b-8699f428b253.jpg",
-                              fit: BoxFit.fill,
+                            : BorderRadius.only(
+                              topLeft: Radius.circular(100.r),
                             ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.w,
-                        vertical: 12.h,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.8),
+                        blurRadius: 8.r,
+                        spreadRadius: 2.r,
+                        offset: Offset(0, 2),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Stack(
-                            children: [
-                              Container(
-                                width: 80.w,
-                                padding: EdgeInsets.only(top: 5),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 17.r,
-                                      backgroundImage: NetworkImage(
-                                        telegram.user.image.isNotEmpty
-                                            ? telegram.user.image
-                                            : profile.image,
-                                          
-                                      ),
-                                      
-                                      backgroundColor: Colors.grey[200],
-                                    ),
-                                    SizedBox(height: 7.h),
-                                    Text(
-                                      telegram.user.name,
-                                      style: TextStyle(
-                                        fontSize: 12.sp,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      _formatTime(telegram.createdAt),
-                                      style: TextStyle(
-                                        fontSize: 12.sp,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child:
+                            context
+                                        .watch<LanguageProvider>()
+                                        .getCurrentLanguageName() ==
+                                    'العربية'
+                                ? Image.asset(
+                                  "assets/image/9c2b5260-39de-4527-a927-d0590bfdcbeb.jpg",
+                                  fit: BoxFit.fill,
+                                )
+                                : Image.asset(
+                                  "assets/image/df90fd6d-5043-4f3f-af7b-8699f428b253.jpg",
+                                  fit: BoxFit.fill,
                                 ),
-                              ),
-                              context
-                                          .watch<LanguageProvider>()
-                                          .getCurrentLanguageName() ==
-                                      'العربية'
-                                  ? Positioned(
-                                      top: 25.h,
-                                      left: 20.w,
-                                      child: Icon(
-                                        Icons.bookmark,
-                                        color: _getRankColor(telegram.user.rank),
-                                        size: 20.sp,
-                                      ),
-                                    )
-                                  : Positioned(
-                                      bottom: 27.h,
-                                      right: 18.w,
-                                      child: Icon(
-                                        Icons.bookmark,
-                                        color: _getRankColor(telegram.user.rank),
-                                        size: 20.sp,
-                                      ),
-                                    ),
-                            ],
-                          ),
-                          SizedBox(width: 16.w),
-                          Expanded(
-                            child: Text(
-                              telegram.content,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[800],
-                              ),
-                            ),
-                          ),
-                          if (widget.userId == null)
-                            PopupMenuButton<String>(
-                              padding: EdgeInsets.zero,
-                              icon: Icon(
-                                Icons.more_vert,
-                                size: 20.sp,
-                                color: Colors.grey[600],
-                              ),
-                              itemBuilder: (context) => [
-                                PopupMenuItem<String>(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.delete_outline,
-                                        size: 18.sp,
-                                        color: Colors.red,
-                                      ),
-                                      SizedBox(width: 8.w),
-                                      Text(
-                                        'حذف البرقية',
-                                        style: TextStyle(fontSize: 12.sp),
-                                      ),
-                                    ],
-                                  ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 10.h,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Padding(
+                                  padding: 
+                                      context
+                                    .watch<LanguageProvider>()
+                                    .getCurrentLanguageName() ==
+                                'العربية'
+                            ?
+                                   EdgeInsets.only(right: 20.0):
+                                   EdgeInsets.only(left: 20.0)
+                                   ,
+                                  child: _buildUserInfo(telegram, profile),
                                 ),
-                                PopupMenuItem<String>(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.edit,
-                                        size: 18.sp,
-                                        color: Colors.grey[700],
-                                      ),
-                                      SizedBox(width: 8.w),
-                                      Text(
-                                        'تعديل',
-                                        style: TextStyle(fontSize: 12.sp),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                _buildSettingsMenu(telegram),
                               ],
-                              onSelected: (value) {
-                                if (value == 'delete') {
-                                  _showDeleteDialog(context, telegram.id);
-                                } else if (value == 'edit') {
-                                  // تعديل البرقية
-                                }
-                              },
                             ),
-                        ],
+                            SizedBox(height: 15.h),
+                            Flexible(
+                              child: Container(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  telegram.content,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(height: 8.h),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildActionButton(
-                      icon: Icons.favorite_border,
-                      label: telegram.likesCount > 0
-                          ? telegram.likesCount.toString()
-                          : 'إعجاب',
-                      onTap: () => _handleLike(telegram),
-                      color: Colors.red,
-                    ),
-                    _buildActionButton(
-                      icon: Icons.chat_bubble_outline,
-                      label: telegram.commentsCount > 0
-                          ? telegram.commentsCount.toString()
-                          : 'تعليق',
-                      onTap: () => _showCommentsDialog(context, telegram),
-                      color: Colors.blue,
-                    ),
-                    _buildActionButton(
-                      icon: Icons.repeat,
-                      label: telegram.repostsCount > 0
-                          ? telegram.repostsCount.toString()
-                          : 'إعادة نشر',
-                      onTap: () => _handleRepost(telegram),
-                      color: Colors.green,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color ?? Colors.grey[600], size: 20.sp),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w500,
-              color: color ?? Colors.grey[700],
+                SizedBox(height: 10),
+                _buildActionsSection(telegram),
+              ],
             ),
           ),
         ],
@@ -1326,8 +1071,322 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildUserInfo(TelegramModel telegram, UserProfileModel profile) {
+    return GestureDetector(
+      onTap: () {},
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 23.r,
+                backgroundImage: NetworkImage(
+                  telegram.user.image.isNotEmpty
+                      ? telegram.user.image
+                      : profile.image,
+                ),
+              ),
+              context.watch<LanguageProvider>().getCurrentLanguageName() ==
+                      'العربية'
+                  ? Positioned(
+                    bottom: -4,
+                    left: -2,
+                    child: Icon(
+                      Icons.bookmark,
+                      color: _getRankColor(telegram.user.rank),
+                      size: 22.sp,
+                    ),
+                  )
+                  : Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Icon(
+                      Icons.bookmark,
+                      color: _getRankColor(telegram.user.rank),
+                      size: 20.sp,
+                    ),
+                  ),
+            ],
+          ),
+          SizedBox(width: 8.w),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                telegram.user.name,
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              Text(
+                _formatTime(telegram.createdAt),
+                style: TextStyle(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsMenu(TelegramModel telegram) {
+    return PopupMenuButton<String>(
+      padding: EdgeInsets.zero,
+      icon: Icon(Icons.more_vert, size: 20.sp, color: Colors.grey.shade600),
+      itemBuilder: (context) => _buildMenuItems(),
+      onSelected: (value) => _handleMenuSelection(value, context, telegram),
+    );
+  }
+
+  List<PopupMenuItem<String>> _buildMenuItems() {
+    return [
+      PopupMenuItem<String>(
+        value: 'save',
+        child: Row(
+          children: [
+            Icon(
+              Icons.bookmark_border,
+              size: 18.sp,
+              color: Colors.grey.shade700,
+            ),
+            SizedBox(width: 8.w),
+            Text('حفظ البرقية', style: TextStyle(fontSize: 12.sp)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'copy',
+        child: Row(
+          children: [
+            Icon(Icons.copy, size: 18.sp, color: Colors.grey.shade700),
+            SizedBox(width: 8.w),
+            Text('نسخ النص', style: TextStyle(fontSize: 12.sp)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'report',
+        child: Row(
+          children: [
+            Icon(Icons.flag_outlined, size: 18.sp, color: Colors.red.shade600),
+            SizedBox(width: 8.w),
+            Text(
+              'الإبلاغ',
+              style: TextStyle(fontSize: 12.sp, color: Colors.red.shade600),
+            ),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'hide',
+        child: Row(
+          children: [
+            Icon(
+              Icons.visibility_off,
+              size: 18.sp,
+              color: Colors.grey.shade700,
+            ),
+            SizedBox(width: 8.w),
+            Text('إخفاء', style: TextStyle(fontSize: 12.sp)),
+          ],
+        ),
+      ),
+      PopupMenuItem<String>(
+        value: 'block',
+        child: Row(
+          children: [
+            Icon(Icons.block, size: 18.sp, color: Colors.red.shade600),
+            SizedBox(width: 8.w),
+            Text(
+              'حظر المستخدم',
+              style: TextStyle(fontSize: 12.sp, color: Colors.red.shade600),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  void _handleMenuSelection(
+    String value,
+    BuildContext context,
+    TelegramModel telegram,
+  ) {
+    switch (value) {
+      case 'report':
+        _showReportDialog(context);
+        break;
+      case 'save':
+        _showSnackBar(context, 'تم حفظ البرقية في المفضلة', Colors.green);
+        break;
+      case 'copy':
+        _showSnackBar(context, 'تم نسخ نص البرقية', Colors.blue);
+        break;
+      case 'hide':
+        _showSnackBar(context, 'تم إخفاء البرقية', Colors.orange);
+        break;
+      case 'block':
+        _showSnackBar(context, 'تم حظر المستخدم', Colors.red);
+        break;
+    }
+  }
+
+  Widget _buildActionsSection(TelegramModel telegram) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 10.w),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildActionButton(
+            icon: Icons.emoji_objects,
+            label:
+                telegram.likesCount > 0
+                    ? telegram.likesCount.toString()
+                    : 'ضوء',
+            onTap: () => _handleLike(telegram),
+          ),
+          _buildActionButton(
+            icon: Icons.chat_bubble_outline,
+            label:
+                telegram.commentsCount > 0
+                    ? telegram.commentsCount.toString()
+                    : 'تعليق',
+            onTap: () => _showCommentsDialog(context, telegram),
+          ),
+          _buildActionButton(
+            icon: Icons.repeat,
+            label:
+                telegram.repostsCount > 0
+                    ? telegram.repostsCount.toString()
+                    : 'شارك',
+            onTap: () => _handleRepost(telegram),
+          ),
+          _buildActionButton(
+            icon: Icons.send_outlined,
+            label: 'إرسال',
+            onTap: () => print('تم الإرسال'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.grey.shade600, size: 20.sp),
+          SizedBox(height: 4.h),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String message, Color color) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+  }
+
+  void _showReportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.r),
+            ),
+            title: Text(
+              'الإبلاغ عن المحتوى',
+              style: TextStyle(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.bold,
+                color: Colors.red.shade700,
+              ),
+            ),
+            content: Container(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'اختر سبب الإبلاغ عن هذه البرقية:',
+                    style: TextStyle(
+                      fontSize: 13.sp,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  _buildReportOption('محتوى غير لائق', Icons.block),
+                  _buildReportOption('معلومات مضللة', Icons.warning),
+                  _buildReportOption('محتوى مسيء', Icons.report_problem),
+                  _buildReportOption('انتحال شخصية', Icons.person_off),
+                  _buildReportOption('محتوى عنيف', Icons.gpp_bad),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  'إلغاء',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('تم الإبلاغ عن البرقية بنجاح'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text('إبلاغ'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReportOption(String title, IconData icon) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.red.shade600, size: 20.sp),
+      title: Text(title, style: TextStyle(fontSize: 12.sp)),
+      onTap: () {},
+    );
+  }
+
   Widget _buildLoadingMoreIndicator(bool isLoadingMore) {
-    final cubit = context.read<ProfileCubit>();
+    final profileCubit = context.read<ProfileCubit>();
 
     if (isLoadingMore) {
       return SliverToBoxAdapter(
@@ -1347,7 +1406,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       );
-    } else if (!cubit.hasMore && cubit.telegramsCount > 0) {
+    } else if (!profileCubit.hasMore && profileCubit.telegramsCount > 0) {
       return SliverToBoxAdapter(
         child: Container(
           padding: EdgeInsets.all(20),
@@ -1364,30 +1423,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SliverToBoxAdapter(child: SizedBox());
   }
 
-  void _showDeleteDialog(BuildContext context, String telegramId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('حذف البرقية'),
-        content: Text('هل أنت متأكد من حذف هذه البرقية؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حذف البرقية')));
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('حذف'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _handleLike(TelegramModel telegram) {
     print('تم الإعجاب بالبرقية ${telegram.id}');
   }
@@ -1399,24 +1434,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showCommentsDialog(BuildContext context, TelegramModel telegram) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('تعليقات البرقية'),
-        content: Container(
-          width: double.maxFinite,
-          height: 300,
-          child: Column(
-            children: [
-              Text('عدد التعليقات: ${telegram.commentsCount}'),
+      builder:
+          (context) => AlertDialog(
+            title: Text('تعليقات البرقية'),
+            content: Container(
+              width: double.maxFinite,
+              height: 300,
+              child: Column(
+                children: [Text('عدد التعليقات: ${telegram.commentsCount}')],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('إغلاق'),
+              ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('إغلاق'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1511,5 +1545,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
       default:
         return '♈️';
     }
+  }
+
+  Color _getZodiacColor(String zodiac) {
+    switch (zodiac.toLowerCase()) {
+      case 'الحمل':
+      case 'aries':
+        return Color(0xFFE74C3C);
+      case 'الثور':
+      case 'taurus':
+        return Color(0xFF27AE60);
+      case 'الجوزاء':
+      case 'gemini':
+        return Color(0xFFF39C12);
+      case 'السرطان':
+      case 'cancer':
+        return Color(0xFF3498DB);
+      case 'الأسد':
+      case 'leo':
+        return Color(0xFFE67E22);
+      case 'العذراء':
+      case 'virgo':
+        return Color(0xFF9B59B6);
+      case 'الميزان':
+      case 'libra':
+        return Color(0xFF1ABC9C);
+      case 'العقرب':
+      case 'scorpio':
+        return Color(0xFFE74C3C);
+      case 'القوس':
+      case 'sagittarius':
+        return Color(0xFFF1C40F);
+      case 'الجدي':
+      case 'capricorn':
+        return Color(0xFF34495E);
+      case 'الدلو':
+      case 'aquarius':
+        return Color(0xFF2980B9);
+      case 'الحوت':
+      case 'pisces':
+        return Color(0xFF8E44AD);
+      default:
+        return AppTheme.primaryColor;
+    }
+  }
+
+  String _getZodiacSymbol(String zodiac) {
+    switch (zodiac.toLowerCase()) {
+      case 'الحمل':
+      case 'aries':
+        return '♈ البرج الناري | 21 مارس - 19 أبريل';
+      case 'الثور':
+      case 'taurus':
+        return '♉ البرج الترابي | 20 أبريل - 20 مايو';
+      case 'الجوزاء':
+      case 'gemini':
+        return '♊ البرج الهوائي | 21 مايو - 20 يونيو';
+      case 'السرطان':
+      case 'cancer':
+        return '♋ البرج المائي | 21 يونيو - 22 يوليو';
+      case 'الأسد':
+      case 'leo':
+        return '♌ البرج الناري | 23 يوليو - 22 أغسطس';
+      case 'العذراء':
+      case 'virgo':
+        return '♍ البرج الترابي | 23 أغسطس - 22 سبتمبر';
+      case 'الميزان':
+      case 'libra':
+        return '♎ البرج الهوائي | 23 سبتمبر - 22 أكتوبر';
+      case 'العقرب':
+      case 'scorpio':
+        return '♏ البرج المائي | 23 أكتوبر - 21 نوفمبر';
+      case 'القوس':
+      case 'sagittarius':
+        return '♐ البرج الناري | 22 نوفمبر - 21 ديسمبر';
+      case 'الجدي':
+      case 'capricorn':
+        return '♑ البرج الترابي | 22 ديسمبر - 19 يناير';
+      case 'الدلو':
+      case 'aquarius':
+        return '♒ البرج الهوائي | 20 يناير - 18 فبراير';
+      case 'الحوت':
+      case 'pisces':
+        return '♓ البرج المائي | 19 فبراير - 20 مارس';
+      default:
+        return '♈';
+    }
+  }
+
+  String _formatBirthdate(DateTime birthdate) {
+    final arabicMonths = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+
+    return '${birthdate.day} ${arabicMonths[birthdate.month - 1]} ${birthdate.year}';
   }
 }

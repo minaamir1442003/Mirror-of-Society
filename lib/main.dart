@@ -1,12 +1,13 @@
 import 'package:app_1/data/services/language_service.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/cubit/forgot_password_cubit.dart';
-import 'package:app_1/presentation/screens/auth/forgetpassword/cubit/otp_cubit.dart';
 import 'package:app_1/presentation/screens/auth/login/cubit/login_cubit.dart';
+import 'package:app_1/presentation/screens/auth/regesteration/screens/RegisterStep1Screen.dart';
 import 'package:app_1/presentation/screens/main_app/home/Cubit/home_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/auth_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/update_profile_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -18,13 +19,24 @@ import 'package:app_1/presentation/screens/auth/forgetpassword/screen/forgot_pas
 import 'package:app_1/presentation/screens/auth/login/screen/login_screen.dart';
 import 'package:app_1/presentation/screens/main_app/main_screen.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/cubit/register_cubit.dart';
-import 'package:app_1/presentation/screens/auth/regesteration/screens/register_screen.dart';
 import 'package:app_1/presentation/screens/main_app/onboarding/onboarding_screen.dart';
 import 'package:app_1/core/constants/app_constants.dart';
 import 'package:app_1/presentation/providers/language_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  print('🚀 App starting...');
+  
+  // ✅ اختبار SharedPreferences مباشرة
+  try {
+    final testPrefs = await SharedPreferences.getInstance();
+    print('✅ SharedPreferences test: successful');
+    print('🔍 Test prefs keys: ${testPrefs.getKeys()}');
+  } catch (e) {
+    print('❌ SharedPreferences test failed: $e');
+  }
 
   // ✅ إنشاء navigatorKey أولاً
   final navigatorKey = GlobalKey<NavigatorState>();
@@ -35,23 +47,25 @@ void main() async {
   // احصل على اللغة المحفوظة قبل تشغيل التطبيق
   final savedLanguage = await LanguageService.getSavedLanguage();
   final savedLanguageCode = LanguageService.getLanguageCode(savedLanguage);
+  
+  print('🌐 Saved language: $savedLanguage, code: $savedLanguageCode');
 
   runApp(
     MyApp(
       initialLanguage: Locale(savedLanguageCode),
-      navigatorKey: navigatorKey, // ✅ تمرير navigatorKey
+      navigatorKey: navigatorKey,
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
   final Locale initialLanguage;
-  final GlobalKey<NavigatorState> navigatorKey; // ✅ إضافة
+  final GlobalKey<NavigatorState> navigatorKey;
 
   const MyApp({
     Key? key,
     required this.initialLanguage,
-    required this.navigatorKey, // ✅ إضافة
+    required this.navigatorKey,
   }) : super(key: key);
 
   @override
@@ -65,7 +79,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (context) => di.sl<LoginCubit>()),
         BlocProvider(create: (context) => di.sl<ForgotPasswordCubit>()),
         BlocProvider(create: (context) => di.sl<UpdateProfileCubit>()),
-          BlocProvider(create: (context) => di.sl<HomeCubit>()),
+        BlocProvider(create: (context) => di.sl<HomeCubit>()),
 
         // أضف LanguageProvider هنا
         ChangeNotifierProvider<LanguageProvider>(
@@ -107,7 +121,7 @@ class MyApp extends StatelessWidget {
 
                 routes: {
                   '/login': (context) => const LoginScreen(),
-                  '/register': (context) => const RegisterScreen(),
+                  '/register': (context) => const RegisterStep1Screen(),
                   '/forgot-password': (context) => const ForgotPasswordScreen(),
                   '/main': (context) => MainScreen(),
                   '/onboarding': (context) => const OnboardingScreen(),
@@ -127,6 +141,7 @@ class MyApp extends StatelessWidget {
       primarySwatch: Colors.blue,
       scaffoldBackgroundColor: Colors.white,
       appBarTheme: const AppBarTheme(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -210,6 +225,7 @@ class MyApp extends StatelessWidget {
       primaryColor: const Color(0xFF1DA1F2),
       scaffoldBackgroundColor: const Color(0xFF121212),
       appBarTheme: const AppBarTheme(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         backgroundColor: Color(0xFF1E1E1E),
         elevation: 0,
         foregroundColor: Colors.white,
@@ -232,48 +248,85 @@ class AuthChecker extends StatefulWidget {
 
 class _AuthCheckerState extends State<AuthChecker> {
   bool _isLoading = true;
-  bool _shouldShowOnboarding = true;
+  bool _shouldShowOnboarding = false;
   bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
+    print('🚀 AuthChecker: initState');
     _checkStatus();
   }
 
   Future<void> _checkStatus() async {
     try {
       final storageService = di.sl<StorageService>();
-
-      // تحقق مما إذا كان المستخدم قد أكمل الأونبوردينج من قبل
-      final isOnboardingCompleted =
-          await storageService.isOnboardingCompleted();
-
-      // تحقق مما إذا كان هناك توكن (مستخدم مسجل دخول)
+      
+      print('🔍 AuthChecker: Starting status check...');
+      
+      // ✅ 1. تأكد من تهيئة StorageService
+      await storageService.ensureInitialized();
+      
+      // ✅ 2. طباعة معلومات التخزين للتحقق
+      await storageService.debugStorage();
+      
+      // ✅ 3. التحقق من حالة الأونبوردينج
+      final isOnboardingCompleted = await storageService.isOnboardingCompleted();
+      print('📊 AuthChecker: isOnboardingCompleted = $isOnboardingCompleted');
+      
+      // ✅ 4. التحقق من التوكن
       final token = await storageService.getToken();
+      final isLoggedIn = (token != null && token.isNotEmpty);
+      print('📊 AuthChecker: isLoggedIn = $isLoggedIn');
+      print('📊 AuthChecker: token = ${token != null ? "Exists (${token.length} chars)" : "null"}');
 
-      // محاكاة تأخير تحميل البيانات
-      await Future.delayed(const Duration(seconds: 1));
+      // ✅ 5. محاكاة تأخير تحميل البيانات (اختياري)
+      await Future.delayed(const Duration(milliseconds: 300));
 
       if (mounted) {
         setState(() {
           _shouldShowOnboarding = !isOnboardingCompleted;
-          _isLoggedIn = (token != null && token.isNotEmpty);
+          _isLoggedIn = isLoggedIn;
           _isLoading = false;
         });
+        
+        print('📊 AuthChecker: Final Decision');
+        print('   - Show Onboarding: $_shouldShowOnboarding');
+        print('   - User Logged In: $_isLoggedIn');
       }
     } catch (e) {
-      print('Error checking auth status: $e');
+      print('❌ AuthChecker: Error checking status: $e');
+      
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _shouldShowOnboarding = true; // في حالة الخطأ، اعرض الأونبوردينج
+          _isLoggedIn = false;
         });
+        
+        print('⚠️ AuthChecker: Defaulting to Onboarding due to error');
       }
+    }
+  }
+
+  // ✅ دالة لحفظ حالة إكمال الأونبوردينج مباشرة
+  Future<void> _markOnboardingCompleted() async {
+    try {
+      final storageService = di.sl<StorageService>();
+      await storageService.setOnboardingCompleted();
+      print('✅ AuthChecker: Onboarding completion saved successfully');
+    } catch (e) {
+      print('❌ AuthChecker: Error saving onboarding completion: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    print('🚀 AuthChecker: Building widget');
+    print('   - isLoading: $_isLoading');
+    print('   - shouldShowOnboarding: $_shouldShowOnboarding');
+    print('   - isLoggedIn: $_isLoggedIn');
+    
     if (_isLoading) {
       return Scaffold(
         body: Center(
@@ -291,15 +344,24 @@ class _AuthCheckerState extends State<AuthChecker> {
         ),
       );
     }
-
+    
+    print('🚀 AuthChecker: Navigation Decision');
+    print('   - Show Onboarding: $_shouldShowOnboarding');
+    print('   - User Logged In: $_isLoggedIn');
+    
     if (_shouldShowOnboarding) {
-      return const OnboardingScreen();
+      print('🚀 Showing OnboardingScreen');
+      return OnboardingScreen(
+        onCompleted: _markOnboardingCompleted, // ✅ تمرير callback
+      );
     }
 
     if (_isLoggedIn) {
-      return MainScreen(); // MainScreen بدلاً من HomeScreen
+      print('🚀 Showing MainScreen (User is logged in)');
+      return MainScreen();
     }
 
+    print('🚀 Showing LoginScreen (User is not logged in)');
     return const LoginScreen();
   }
 }

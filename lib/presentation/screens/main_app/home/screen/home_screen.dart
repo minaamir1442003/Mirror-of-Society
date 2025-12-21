@@ -1,6 +1,7 @@
 import 'package:app_1/core/theme/app_colors.dart';
 import 'package:app_1/core/theme/app_theme.dart';
 import 'package:app_1/data/models/bolt_model.dart';
+import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:app_1/presentation/screens/main_app/chat/chats_screen.dart';
 import 'package:app_1/presentation/screens/main_app/home/Cubit/home_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/home/models/home_feed_model.dart';
@@ -31,20 +32,42 @@ class HomeScreenState extends State<HomeScreen> {
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
   
-  List<String> categories = [
-    'الكل',
-    'Arts',
-    'Sports',
-    'Technology',
-    'Movies',
-    'Fashion',
-    'Business',
-    'Health',
-    'Travel',
-    'Science',
-    'Gaming',
-    'Literature',
-  ];
+  List<String> get categories {
+    final langProvider = context.read<LanguageProvider>();
+    final isArabic = langProvider.getCurrentLanguageName() == 'العربية';
+    
+    if (isArabic) {
+      return [
+        'الكل',
+        'فنون',
+        'رياضة',
+        'تكنولوجيا',
+        'أفلام',
+        'موضة',
+        'أعمال',
+        'صحة',
+        'سفر',
+        'علوم',
+        'ألعاب',
+        'أدب',
+      ];
+    } else {
+      return [
+        'All',
+        'Arts',
+        'Sports',
+        'Technology',
+        'Movies',
+        'Fashion',
+        'Business',
+        'Health',
+        'Travel',
+        'Science',
+        'Gaming',
+        'Literature',
+      ];
+    }
+  }
 
   @override
   void initState() {
@@ -217,7 +240,7 @@ class HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategories() {
     return Container(
-      padding: EdgeInsets.only(left: 110.w),
+      padding: EdgeInsets.only(left: 82.w),
       height: 50,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,

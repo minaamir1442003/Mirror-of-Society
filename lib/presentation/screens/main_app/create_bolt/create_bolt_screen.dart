@@ -33,10 +33,11 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
         ),
         actions: [
           Container(
-            margin: EdgeInsets.all(8),
+            margin: EdgeInsets.only(left: 12),
             child: ElevatedButton(
               onPressed: charCount > 0 ? _postBolt : null,
               style: ElevatedButton.styleFrom(
+                fixedSize: Size(90, 30),
                 backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
