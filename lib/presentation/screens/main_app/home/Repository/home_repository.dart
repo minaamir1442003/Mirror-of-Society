@@ -1,5 +1,7 @@
+
+
 import 'package:app_1/core/constants/api_const.dart';
-import 'package:app_1/presentation/screens/main_app/home/models/home_feed_model.dart';
+import 'package:app_1/presentation/screens/main_app/home/Models/home_feed_model.dart';
 import 'package:dio/dio.dart';
 
 class HomeRepository {
@@ -7,12 +9,11 @@ class HomeRepository {
 
   HomeRepository({required Dio dio}) : _dio = dio;
 
+  // ✅ 1. جلب كل البرقيات
   Future<HomeFeedResponse> getHomeFeed({String? cursor}) async {
     try {
-      print('📡 Fetching home feed from: ${ApiConstants.apiBaseUrl}/home');
-      print('🔗 Cursor: $cursor');
+      print('📡 جلب كل البرقيات');
       
-      // ✅ تصحيح: استخدم cursor مباشرة
       final queryParams = cursor != null ? {'cursor': cursor} : null;
       
       final response = await _dio.get(
@@ -20,40 +21,77 @@ class HomeRepository {
         queryParameters: queryParams,
       );
       
-      print('✅ Home feed response received');
-      print('📊 Response status: ${response.statusCode}');
-      
-      // ✅ فحص الاستجابة
       if (response.data['status'] != true) {
-        throw Exception(response.data['message'] ?? 'Failed to load home feed');
+        throw Exception(response.data['message'] ?? 'فشل تحميل البرقيات');
       }
-      
-      final feedData = response.data['data']['feed']['data'] ?? [];
-      print('📦 Total items in response: ${feedData.length}');
       
       return HomeFeedResponse.fromJson(response.data);
     } on DioException catch (e) {
-      print('❌ Dio Error: ${e.message}');
-      print('❌ Status code: ${e.response?.statusCode}');
-      print('❌ Error response: ${e.response?.data}');
-      
-      if (e.response != null) {
-        throw Exception(e.response!.data['message'] ?? 'Failed to load home feed');
-      } else {
-        throw Exception('Network error: ${e.message}');
-      }
+      print('❌ خطأ: ${e.message}');
+      throw Exception(e.response?.data['message'] ?? 'فشل تحميل البرقيات');
     } catch (e) {
-      print('❌ Unknown Error: $e');
-      throw Exception('Failed to load home feed: $e');
+      print('❌ خطأ غير معروف: $e');
+      throw Exception('فشل تحميل البرقيات');
+    }
+  }
+
+  // ✅ 2. جلب برقيات تصنيف معين
+  Future<HomeFeedResponse> getCategoryFeed({
+    required String categoryId, 
+    String? cursor
+  }) async {
+    try {
+      print('📡 جلب برقيات التصنيف $categoryId');
+      
+      final queryParams = cursor != null ? {'cursor': cursor} : null;
+      
+      final response = await _dio.get(
+        '${ApiConstants.apiBaseUrl}/home/categories/$categoryId',
+        queryParameters: queryParams,
+      );
+      
+      if (response.data['status'] != true) {
+        throw Exception(response.data['message'] ?? 'فشل تحميل برقيات التصنيف');
+      }
+      
+      return HomeFeedResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      print('❌ خطأ (تصنيف): ${e.message}');
+      throw Exception(e.response?.data['message'] ?? 'فشل تحميل برقيات التصنيف');
+    } catch (e) {
+      print('❌ خطأ غير معروف (تصنيف): $e');
+      throw Exception('فشل تحميل برقيات التصنيف');
     }
   }
   
+  // ✅ 3. جلب كل التصنيفات
+  Future<List<Category>> getCategories() async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.apiBaseUrl}/categories',
+      );
+      
+      if (response.data['status'] != true) {
+        throw Exception(response.data['message'] ?? 'فشل تحميل التصنيفات');
+      }
+      
+      final categories = (response.data['data'] as List)
+          .map((item) => Category.fromJson(item))
+          .toList();
+      
+      return categories;
+    } catch (e) {
+      print('❌ خطأ في تحميل التصنيفات: $e');
+      throw Exception('فشل تحميل التصنيفات');
+    }
+  }
+  
+  // ✅ 4. دوال التفاعل
   Future<void> likeTelegram(String telegramId) async {
     try {
       await _dio.post('${ApiConstants.apiBaseUrl}/telegrams/$telegramId/like');
     } catch (e) {
-      print('❌ Error liking telegram: $e');
-      throw Exception('Failed to like telegram');
+      throw Exception('فشل الإعجاب بالبرقية');
     }
   }
   
@@ -61,8 +99,7 @@ class HomeRepository {
     try {
       await _dio.delete('${ApiConstants.apiBaseUrl}/telegrams/$telegramId/like');
     } catch (e) {
-      print('❌ Error unliking telegram: $e');
-      throw Exception('Failed to unlike telegram');
+      throw Exception('فشل إلغاء الإعجاب');
     }
   }
   
@@ -70,8 +107,7 @@ class HomeRepository {
     try {
       await _dio.post('${ApiConstants.apiBaseUrl}/telegrams/$telegramId/repost');
     } catch (e) {
-      print('❌ Error reposting telegram: $e');
-      throw Exception('Failed to repost telegram');
+      throw Exception('فشل إعادة النشر');
     }
   }
 }

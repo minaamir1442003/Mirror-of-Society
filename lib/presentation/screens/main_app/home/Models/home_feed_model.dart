@@ -156,6 +156,7 @@ class FeedItem {
       createdAt: createdAt,
       userName: user.name,
       userImage: user.image.isNotEmpty ? user.image : "assets/image/images.jpg",
+      userId: user.id, 
       likes: metrics.likesCount,
       comments: metrics.commentsCount,
       shares: metrics.repostsCount,
@@ -347,6 +348,42 @@ class OnThisDayEvent {
       'description': description,
       'date': date.toIso8601String(),
       'image_url': imageUrl,
+    };
+  }
+}
+// أضف هذا الكلاس في الملف
+class Category {
+  final String id;
+  final String name;
+  final String color;
+  final String? icon;
+  final int telegramsCount;
+
+  Category({
+    required this.id,
+    required this.name,
+    required this.color,
+    this.icon,
+    required this.telegramsCount,
+  });
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'].toString(),
+      name: json['name'] ?? '',
+      color: json['color'] ?? '#000000',
+      icon: json['icon'],
+      telegramsCount: json['telegrams_count'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'color': color,
+      'icon': icon,
+      'telegrams_count': telegramsCount,
     };
   }
 }

@@ -2,10 +2,14 @@ import 'package:app_1/data/services/language_service.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/cubit/forgot_password_cubit.dart';
 import 'package:app_1/presentation/screens/auth/login/cubit/login_cubit.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/screens/RegisterStep1Screen.dart';
+import 'package:app_1/presentation/screens/main_app/create_bolt/cubits/telegram_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/home/Cubit/home_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/auth_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/update_profile_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/verification/cubits/verification_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/verification/repositories/verification_repository.dart';
+import 'package:app_1/presentation/screens/main_app/user_profile/cubits/user_profile_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,7 +32,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   print('🚀 App starting...');
-  
+
   // ✅ اختبار SharedPreferences مباشرة
   try {
     final testPrefs = await SharedPreferences.getInstance();
@@ -47,7 +51,7 @@ void main() async {
   // احصل على اللغة المحفوظة قبل تشغيل التطبيق
   final savedLanguage = await LanguageService.getSavedLanguage();
   final savedLanguageCode = LanguageService.getLanguageCode(savedLanguage);
-  
+
   print('🌐 Saved language: $savedLanguage, code: $savedLanguageCode');
 
   runApp(
@@ -80,7 +84,12 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (context) => di.sl<ForgotPasswordCubit>()),
         BlocProvider(create: (context) => di.sl<UpdateProfileCubit>()),
         BlocProvider(create: (context) => di.sl<HomeCubit>()),
-
+        BlocProvider(create: (context) => di.sl<TelegramCubit>()),
+        BlocProvider(create: (context) => di.sl<VerificationCubit>()),
+          BlocProvider(create: (context) => di.sl<UserProfileCubit>()),
+        Provider<VerificationRepository>(
+          create: (context) => di.sl<VerificationRepository>(),
+        ),
         // أضف LanguageProvider هنا
         ChangeNotifierProvider<LanguageProvider>(
           create: (context) => LanguageProvider(initialLocale: initialLanguage),
@@ -261,24 +270,27 @@ class _AuthCheckerState extends State<AuthChecker> {
   Future<void> _checkStatus() async {
     try {
       final storageService = di.sl<StorageService>();
-      
+
       print('🔍 AuthChecker: Starting status check...');
-      
+
       // ✅ 1. تأكد من تهيئة StorageService
       await storageService.ensureInitialized();
-      
+
       // ✅ 2. طباعة معلومات التخزين للتحقق
       await storageService.debugStorage();
-      
+
       // ✅ 3. التحقق من حالة الأونبوردينج
-      final isOnboardingCompleted = await storageService.isOnboardingCompleted();
+      final isOnboardingCompleted =
+          await storageService.isOnboardingCompleted();
       print('📊 AuthChecker: isOnboardingCompleted = $isOnboardingCompleted');
-      
+
       // ✅ 4. التحقق من التوكن
       final token = await storageService.getToken();
       final isLoggedIn = (token != null && token.isNotEmpty);
       print('📊 AuthChecker: isLoggedIn = $isLoggedIn');
-      print('📊 AuthChecker: token = ${token != null ? "Exists (${token.length} chars)" : "null"}');
+      print(
+        '📊 AuthChecker: token = ${token != null ? "Exists (${token.length} chars)" : "null"}',
+      );
 
       // ✅ 5. محاكاة تأخير تحميل البيانات (اختياري)
       await Future.delayed(const Duration(milliseconds: 300));
@@ -289,21 +301,21 @@ class _AuthCheckerState extends State<AuthChecker> {
           _isLoggedIn = isLoggedIn;
           _isLoading = false;
         });
-        
+
         print('📊 AuthChecker: Final Decision');
         print('   - Show Onboarding: $_shouldShowOnboarding');
         print('   - User Logged In: $_isLoggedIn');
       }
     } catch (e) {
       print('❌ AuthChecker: Error checking status: $e');
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
           _shouldShowOnboarding = true; // في حالة الخطأ، اعرض الأونبوردينج
           _isLoggedIn = false;
         });
-        
+
         print('⚠️ AuthChecker: Defaulting to Onboarding due to error');
       }
     }
@@ -326,7 +338,7 @@ class _AuthCheckerState extends State<AuthChecker> {
     print('   - isLoading: $_isLoading');
     print('   - shouldShowOnboarding: $_shouldShowOnboarding');
     print('   - isLoggedIn: $_isLoggedIn');
-    
+
     if (_isLoading) {
       return Scaffold(
         body: Center(
@@ -344,11 +356,11 @@ class _AuthCheckerState extends State<AuthChecker> {
         ),
       );
     }
-    
+
     print('🚀 AuthChecker: Navigation Decision');
     print('   - Show Onboarding: $_shouldShowOnboarding');
     print('   - User Logged In: $_isLoggedIn');
-    
+
     if (_shouldShowOnboarding) {
       print('🚀 Showing OnboardingScreen');
       return OnboardingScreen(

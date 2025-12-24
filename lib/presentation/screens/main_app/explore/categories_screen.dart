@@ -1,76 +1,359 @@
+import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final Function(String)? onCategorySelected;
   const CategoriesScreen({Key? key, this.onCategorySelected}) : super(key: key);
+  
   @override
   _CategoriesScreenState createState() => _CategoriesScreenState();
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-  final List<Category> categories = [
-    Category(
-      name: 'تكنولوجيا',
-      color: AppColors.primary,
-      icon: Icons.computer,
-      count: 156,
-      description: 'أحدث الأخبار والتطورات التقنية',
-    ),
-    Category(
-      name: 'رياضة',
-      color: AppColors.success,
-      icon: Icons.sports_soccer,
-      count: 234,
-      description: 'أخبار الرياضة والمباريات',
-    ),
-    Category(
-      name: 'فن',
-      color: AppColors.warning,
-      icon: Icons.palette,
-      count: 189,
-      description: 'الفنون والأدب والثقافة',
-    ),
-    Category(
-      name: 'سياسة',
-      color: AppColors.danger,
-      icon: Icons.account_balance,
-      count: 123,
-      description: 'الأخبار السياسية والتحليلات',
-    ),
-    Category(
-      name: 'اقتصاد',
-      color: Color(0xFF794BC4),
-      icon: Icons.trending_up,
-      count: 98,
-      description: 'الأخبار الاقتصادية والمالية',
-    ),
-    Category(
-      name: 'عامة',
-      color: AppColors.darkGray,
-      icon: Icons.public,
-      count: 345,
-      description: 'مواضيع عامة ومنوعة',
-    ),
-    Category(
-      name: 'صحة',
-      color: Color(0xFF00B894),
-      icon: Icons.health_and_safety,
-      count: 87,
-      description: 'نصائح صحية وأخبار طبية',
-    ),
-    Category(
-      name: 'سفر',
-      color: Color(0xFFFD79A8),
-      icon: Icons.flight,
-      count: 76,
-      description: 'نصائح السفر والرحلات',
-    ),
-  ];
+  // نموذج البيانات من API
+  Map<String, dynamic> apiDataArabic = {
+    "status": true,
+    "message": "Categories fetched successfully",
+    "data": [
+      {
+        "id": 1,
+        "name": "سياسة",
+        "color": "#dc3545",
+        "icon": null,
+        "telegrams_count": 34
+      },
+      {
+        "id": 2,
+        "name": "رياضة",
+        "color": "#28a745",
+        "icon": null,
+        "telegrams_count": 35
+      },
+      {
+        "id": 3,
+        "name": "فن",
+        "color": "#6f42c1",
+        "icon": null,
+        "telegrams_count": 34
+      },
+      {
+        "id": 4,
+        "name": "تكنولوجيا",
+        "color": "#007bff",
+        "icon": null,
+        "telegrams_count": 36
+      },
+      {
+        "id": 5,
+        "name": "صحة",
+        "color": "#17a2b8",
+        "icon": null,
+        "telegrams_count": 26
+      },
+      {
+        "id": 6,
+        "name": "سفر",
+        "color": "#ffc107",
+        "icon": null,
+        "telegrams_count": 38
+      },
+      {
+        "id": 7,
+        "name": "طعام",
+        "color": "#fd7e14",
+        "icon": null,
+        "telegrams_count": 27
+      },
+      {
+        "id": 8,
+        "name": "موضة",
+        "color": "#e83e8c",
+        "icon": null,
+        "telegrams_count": 31
+      },
+      {
+        "id": 9,
+        "name": "علوم",
+        "color": "#20c997",
+        "icon": null,
+        "telegrams_count": 33
+      },
+      {
+        "id": 10,
+        "name": "أعمال",
+        "color": "#343a40",
+        "icon": null,
+        "telegrams_count": 44
+      },
+      {
+        "id": 11,
+        "name": "موسيقى",
+        "color": "#6610f2",
+        "icon": null,
+        "telegrams_count": 33
+      },
+      {
+        "id": 12,
+        "name": "أفلام",
+        "color": "#d63384",
+        "icon": null,
+        "telegrams_count": 37
+      },
+      {
+        "id": 13,
+        "name": "ألعاب",
+        "color": "#198754",
+        "icon": null,
+        "telegrams_count": 26
+      },
+      {
+        "id": 14,
+        "name": "أدب",
+        "color": "#fd7e14",
+        "icon": null,
+        "telegrams_count": 39
+      },
+      {
+        "id": 15,
+        "name": "تعليم",
+        "color": "#0dcaf0",
+        "icon": null,
+        "telegrams_count": 30
+      }
+    ]
+  };
+
+  Map<String, dynamic> apiDataEnglish = {
+    "status": true,
+    "message": "Categories fetched successfully",
+    "data": [
+      {
+        "id": 1,
+        "name": "Politics",
+        "color": "#dc3545",
+        "icon": null,
+        "telegrams_count": 34
+      },
+      {
+        "id": 2,
+        "name": "Sports",
+        "color": "#28a745",
+        "icon": null,
+        "telegrams_count": 35
+      },
+      {
+        "id": 3,
+        "name": "Arts",
+        "color": "#6f42c1",
+        "icon": null,
+        "telegrams_count": 34
+      },
+      {
+        "id": 4,
+        "name": "Technology",
+        "color": "#007bff",
+        "icon": null,
+        "telegrams_count": 36
+      },
+      {
+        "id": 5,
+        "name": "Health",
+        "color": "#17a2b8",
+        "icon": null,
+        "telegrams_count": 26
+      },
+      {
+        "id": 6,
+        "name": "Travel",
+        "color": "#ffc107",
+        "icon": null,
+        "telegrams_count": 38
+      },
+      {
+        "id": 7,
+        "name": "Food",
+        "color": "#fd7e14",
+        "icon": null,
+        "telegrams_count": 27
+      },
+      {
+        "id": 8,
+        "name": "Fashion",
+        "color": "#e83e8c",
+        "icon": null,
+        "telegrams_count": 31
+      },
+      {
+        "id": 9,
+        "name": "Science",
+        "color": "#20c997",
+        "icon": null,
+        "telegrams_count": 33
+      },
+      {
+        "id": 10,
+        "name": "Business",
+        "color": "#343a40",
+        "icon": null,
+        "telegrams_count": 44
+      },
+      {
+        "id": 11,
+        "name": "Music",
+        "color": "#6610f2",
+        "icon": null,
+        "telegrams_count": 33
+      },
+      {
+        "id": 12,
+        "name": "Movies",
+        "color": "#d63384",
+        "icon": null,
+        "telegrams_count": 37
+      },
+      {
+        "id": 13,
+        "name": "Gaming",
+        "color": "#198754",
+        "icon": null,
+        "telegrams_count": 26
+      },
+      {
+        "id": 14,
+        "name": "Literature",
+        "color": "#fd7e14",
+        "icon": null,
+        "telegrams_count": 39
+      },
+      {
+        "id": 15,
+        "name": "Education",
+        "color": "#0dcaf0",
+        "icon": null,
+        "telegrams_count": 30
+      }
+    ]
+  };
+
+  // دالة لتحويل hex color إلى Color
+  Color _getColorFromHex(String hexColor) {
+    hexColor = hexColor.replaceAll("#", "");
+    if (hexColor.length == 6) {
+      hexColor = "FF" + hexColor;
+    }
+    return Color(int.parse(hexColor, radix: 16));
+  }
+
+  // دالة للحصول على icon بناءً على اسم الفئة
+  IconData _getIconForCategory(String categoryName) {
+    final iconsMap = {
+      'سياسة': Icons.account_balance,
+      'رياضة': Icons.sports_soccer,
+      'فن': Icons.palette,
+      'تكنولوجيا': Icons.computer,
+      'صحة': Icons.health_and_safety,
+      'سفر': Icons.flight,
+      'طعام': Icons.restaurant,
+      'موضة': Icons.shopping_bag,
+      'علوم': Icons.science,
+      'أعمال': Icons.business,
+      'موسيقى': Icons.music_note,
+      'أفلام': Icons.movie,
+      'ألعاب': Icons.videogame_asset,
+      'أدب': Icons.book,
+      'تعليم': Icons.school,
+      // الإنجليزية
+      'Politics': Icons.account_balance,
+      'Sports': Icons.sports_soccer,
+      'Arts': Icons.palette,
+      'Technology': Icons.computer,
+      'Health': Icons.health_and_safety,
+      'Travel': Icons.flight,
+      'Food': Icons.restaurant,
+      'Fashion': Icons.shopping_bag,
+      'Science': Icons.science,
+      'Business': Icons.business,
+      'Music': Icons.music_note,
+      'Movies': Icons.movie,
+      'Gaming': Icons.videogame_asset,
+      'Literature': Icons.book,
+      'Education': Icons.school,
+    };
+    
+    return iconsMap[categoryName] ?? Icons.category;
+  }
+
+  // دالة للحصول على الوصف بناءً على اسم الفئة
+  String _getDescriptionForCategory(String categoryName) {
+    final descriptionsArabic = {
+      'سياسة': 'الأخبار السياسية والتحليلات',
+      'رياضة': 'أخبار الرياضة والمباريات',
+      'فن': 'الفنون والأدب والثقافة',
+      'تكنولوجيا': 'أحدث الأخبار والتطورات التقنية',
+      'صحة': 'نصائح صحية وأخبار طبية',
+      'سفر': 'نصائح السفر والرحلات',
+      'طعام': 'وصفات وأخبار الطعام',
+      'موضة': 'أحدث صيحات الموضة',
+      'علوم': 'أحدث الاكتشافات العلمية',
+      'أعمال': 'الأخبار الاقتصادية والمالية',
+      'موسيقى': 'أخبار الموسيقى والحفلات',
+      'أفلام': 'أخبار الأفلام والسينما',
+      'ألعاب': 'أحدث ألعاب الفيديو والتطورات',
+      'أدب': 'أخبار الأدب والكتب',
+      'تعليم': 'أخبار التعليم والدورات',
+    };
+
+    final descriptionsEnglish = {
+      'Politics': 'Political news and analysis',
+      'Sports': 'Sports news and matches',
+      'Arts': 'Arts, literature and culture',
+      'Technology': 'Latest tech news and developments',
+      'Health': 'Health tips and medical news',
+      'Travel': 'Travel tips and trips',
+      'Food': 'Recipes and food news',
+      'Fashion': 'Latest fashion trends',
+      'Science': 'Latest scientific discoveries',
+      'Business': 'Economic and financial news',
+      'Music': 'Music news and concerts',
+      'Movies': 'Movie and cinema news',
+      'Gaming': 'Latest video games and developments',
+      'Literature': 'Literature and books news',
+      'Education': 'Education news and courses',
+    };
+    
+    final languageProvider = context.read<LanguageProvider>();
+    if (languageProvider.isArabic) {
+      return descriptionsArabic[categoryName] ?? 'مواضيع متنوعة';
+    } else {
+      return descriptionsEnglish[categoryName] ?? 'Various topics';
+    }
+  }
+
+  List<Category> _getCategoriesFromApi() {
+    final languageProvider = context.read<LanguageProvider>();
+    final apiData = languageProvider.isArabic ? apiDataArabic : apiDataEnglish;
+    final List<dynamic> categoriesData = apiData['data'];
+    
+    return categoriesData.map((item) {
+      return Category(
+        id: item['id'],
+        name: item['name'],
+        color: _getColorFromHex(item['color']),
+        icon: _getIconForCategory(item['name']),
+        count: item['telegrams_count'],
+        description: _getDescriptionForCategory(item['name']),
+      );
+    }).toList();
+  }
 
   // AppBar
   AppBar _buildAppBar() {
+    final languageProvider = context.watch<LanguageProvider>();
+    final isArabic = languageProvider.isArabic;
+    
     return AppBar(
       leadingWidth: 150.w,
       backgroundColor: Colors.white,
@@ -80,10 +363,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           Icon(Icons.category, color: AppColors.primary, size: 30.sp),
           SizedBox(width: 8.w),
           Text(
-            'التصنيفات',
+            isArabic ? 'التصنيفات' : 'Categories',
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 24.sp,
+              fontSize: 22.sp,
               color: AppColors.secondary,
             ),
           ),
@@ -93,11 +376,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         Icon(
           Icons.bookmark,
           color: AppColors.warning,
-          size: 40.sp, // تصغير
+          size: 40.sp,
         ),
         SizedBox(width: 8.w),
         IconButton(
-          icon: Icon(Icons.search, size: 25.sp), // تصغير
+          icon: Icon(Icons.search, size: 25.sp),
           onPressed: () {},
         ),
       ],
@@ -105,8 +388,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Widget _buildCategoryCard(Category category) {
+    final languageProvider = context.watch<LanguageProvider>();
+    final isArabic = languageProvider.isArabic;
+    
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), // تصغير
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
       elevation: 2,
       child: InkWell(
         onTap: () {
@@ -114,25 +400,25 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         },
         borderRadius: BorderRadius.circular(12.r),
         child: Container(
-          constraints: BoxConstraints(minHeight: 180.h), // تحديد ارتفاع أدنى
+          constraints: BoxConstraints(minHeight: 180.h),
           child: Padding(
-            padding: EdgeInsets.all(12.w), // تصغير
+            padding: EdgeInsets.all(12.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween, // توزيع المسافات
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.all(6.w), // تصغير
+                      padding: EdgeInsets.all(6.w),
                       decoration: BoxDecoration(
                         color: category.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8.r), // تصغير
+                        borderRadius: BorderRadius.circular(8.r),
                       ),
                       child: Icon(
                         category.icon,
                         color: category.color,
-                        size: 20.sp, // تصغير
+                        size: 20.sp,
                       ),
                     ),
                     Spacer(),
@@ -143,14 +429,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: category.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6.r), // تصغير
+                        borderRadius: BorderRadius.circular(6.r),
                       ),
                       child: Text(
                         '${category.count}',
                         style: TextStyle(
                           color: category.color,
                           fontWeight: FontWeight.bold,
-                          fontSize: 10.sp, // تصغير
+                          fontSize: 10.sp,
                         ),
                       ),
                     ),
@@ -160,18 +446,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 Text(
                   category.name,
                   style: TextStyle(
-                    fontSize: 16.sp, // تصغير قليلاً
+                    fontSize: 16.sp,
                     fontWeight: FontWeight.bold,
                     color: AppColors.secondary,
                   ),
                 ),
                 SizedBox(height: 2.h),
-                Expanded( // استخدام Expanded للوصف
+                Expanded(
                   child: Text(
                     category.description,
                     style: TextStyle(
                       color: AppColors.darkGray,
-                      fontSize: 11.sp, // تصغير
+                      fontSize: 11.sp,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -180,8 +466,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 SizedBox(height: 8.h),
                 Center(
                   child: SizedBox(
-                    width: 80.w, // تصغير عرض الزر
-                    height: 28.h, // تصغير ارتفاع الزر
+                    width: 80.w,
+                    height: 28.h,
                     child: ElevatedButton(
                       onPressed: () {
                         if (widget.onCategorySelected != null) {
@@ -192,13 +478,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         backgroundColor: category.color,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15.r), // تصغير
+                          borderRadius: BorderRadius.circular(15.r),
                         ),
-                        padding: EdgeInsets.zero, // إزالة padding الإضافي
+                        padding: EdgeInsets.zero,
                       ),
                       child: Text(
-                        'تصفح',
-                        style: TextStyle(fontSize: 11.sp), // تصغير
+                        isArabic ? 'تصفح' : 'Browse',
+                        style: TextStyle(fontSize: 11.sp),
                       ),
                     ),
                   ),
@@ -212,6 +498,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   void _showCategoryDetails(BuildContext context, Category category) {
+    final languageProvider = context.read<LanguageProvider>();
+    final isArabic = languageProvider.isArabic;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -222,7 +511,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         return Container(
           padding: EdgeInsets.all(20.w),
           height: MediaQuery.of(context).size.height * 0.7,
-          child: SingleChildScrollView( // إضافة ScrollView
+          child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -266,7 +555,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           ),
                           SizedBox(height: 4.h),
                           Text(
-                            '${category.count} برقية',
+                            '${category.count} ${isArabic ? 'برقية' : 'telegrams'}',
                             style: TextStyle(
                               color: category.color,
                               fontSize: 14.sp,
@@ -290,6 +579,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
+                    if (widget.onCategorySelected != null) {
+                      widget.onCategorySelected!(category.name);
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: category.color,
@@ -299,7 +591,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ),
                   ),
                   child: Text(
-                    'عرض برقيات ${category.name}',
+                    isArabic ? 'عرض برقيات ${category.name}' : 'View ${category.name} telegrams',
                     style: TextStyle(fontSize: 16.sp),
                   ),
                 ),
@@ -307,7 +599,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text('إغلاق', style: TextStyle(fontSize: 14.sp)),
+                    child: Text(
+                      isArabic ? 'إغلاق' : 'Close',
+                      style: TextStyle(fontSize: 14.sp)
+                    ),
                   ),
                 ),
               ],
@@ -318,7 +613,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  // دالة لحساب عدد الأعمدة بناءً على عرض الشاشة
   int _calculateCrossAxisCount(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     
@@ -329,34 +623,36 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     } else if (screenWidth < 900) {
       return 3;
     } else {
-      return 4; // زيادة في الشاشات الكبيرة
+      return 4;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+    final languageProvider = context.watch<LanguageProvider>();
+    final categories = _getCategoriesFromApi();
     
     return Scaffold(
       appBar: isPortrait ? _buildAppBar() : null,
       body: SafeArea(
         child: Column(
           children: [
-            SizedBox(height: 12.h), // تقليل المسافة
+            SizedBox(height: 12.h),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final crossAxisCount = _calculateCrossAxisCount(context);
                   
                   return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w), // تقليل
+                    padding: EdgeInsets.symmetric(horizontal: 12.w),
                     child: GridView.builder(
-                      physics: BouncingScrollPhysics(), // إضافة تأثير التمرير
+                      physics: BouncingScrollPhysics(),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 12.w, // تقليل
-                        mainAxisSpacing: 12.h, // تقليل
-                        childAspectRatio: _getAspectRatio(crossAxisCount), // دالة جديدة
+                        crossAxisSpacing: 12.w,
+                        mainAxisSpacing: 12.h,
+                        childAspectRatio: _getAspectRatio(crossAxisCount),
                       ),
                       itemCount: categories.length,
                       itemBuilder: (context, index) {
@@ -373,17 +669,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  // دالة جديدة لحساب aspect ratio بناءً على عدد الأعمدة وعرض الشاشة
   double _getAspectRatio(int crossAxisCount) {
     switch (crossAxisCount) {
       case 1:
-        return 1.3; // عمود واحد - بطاقة أطول
+        return 1.3;
       case 2:
-        return 0.75; // عمودين - بطاقة متوسطة
+        return 0.75;
       case 3:
-        return 0.7; // ثلاثة أعمدة - بطاقة أصغر
+        return 0.7;
       case 4:
-        return 0.65; // أربعة أعمدة - بطاقة أصغر جداً
+        return 0.65;
       default:
         return 0.7;
     }
@@ -391,14 +686,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 }
 
 class Category {
+  final int id;
   final String name;
   final Color color;
   final IconData icon;
   final String description;
-  int count;
+  final int count;
   bool isFollowing;
 
   Category({
+    required this.id,
     required this.name,
     required this.color,
     required this.icon,
@@ -409,6 +706,7 @@ class Category {
 
   Category copyWith({bool? isFollowing, int? count}) {
     return Category(
+      id: id,
       name: name,
       color: color,
       icon: icon,
@@ -417,11 +715,4 @@ class Category {
       isFollowing: isFollowing ?? this.isFollowing,
     );
   }
-}
-
-class TabItem {
-  final String title;
-  final int count;
-
-  TabItem({required this.title, required this.count});
 }

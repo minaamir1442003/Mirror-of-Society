@@ -11,6 +11,7 @@ class BoltModel {
   final String userImage;
   final int likes;
   final int comments;
+  final String? userId;
   final int shares;
   final bool isAd;
   final bool isLiked;
@@ -19,6 +20,7 @@ class BoltModel {
   final VoidCallback? onLikePressed;
   final VoidCallback? onCommentPressed;
   final VoidCallback? onSharePressed;
+  
 
   BoltModel({
     this.id = '',
@@ -35,9 +37,53 @@ class BoltModel {
     this.isAd = false,
     this.isLiked = false,
     this.isReposted = false,
+    this.userId,
     this.userRank,
     this.onLikePressed,
     this.onCommentPressed,
     this.onSharePressed,
   });
+  BoltModel copyWith({
+    String? id,
+    String? content,
+    String? category,
+    Color? categoryColor,
+    IconData? categoryIcon,
+    DateTime? createdAt,
+    String? userName,
+    String? userImage,
+    String? userId,
+    int? likes,
+    int? comments,
+    int? shares,
+    bool? isAd,
+    bool? isLiked,
+    bool? isReposted,
+    String? userRank,
+    VoidCallback? onLikePressed,
+    VoidCallback? onCommentPressed,
+    VoidCallback? onSharePressed,
+  }) {
+    return BoltModel(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      category: category ?? this.category,
+      categoryColor: categoryColor ?? this.categoryColor,
+      categoryIcon: categoryIcon ?? this.categoryIcon,
+      createdAt: createdAt ?? this.createdAt,
+      userName: userName ?? this.userName,
+      userImage: userImage ?? this.userImage,
+      userId: userId ?? this.userId,
+      likes: likes ?? this.likes,
+      comments: comments ?? this.comments,
+      shares: shares ?? this.shares,
+      isAd: isAd ?? this.isAd,
+      isLiked: isLiked ?? this.isLiked,
+      isReposted: isReposted ?? this.isReposted,
+      userRank: userRank ?? this.userRank,
+      onLikePressed: onLikePressed ?? this.onLikePressed,
+      onCommentPressed: onCommentPressed ?? this.onCommentPressed,
+      onSharePressed: onSharePressed ?? this.onSharePressed,
+    );
+  }
 }

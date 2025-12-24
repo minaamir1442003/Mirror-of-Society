@@ -2,6 +2,7 @@
 import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/models/user_profile_model.dart';
+import 'package:app_1/presentation/screens/main_app/profile/verification/screens/request_verification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app_1/core/theme/app_theme.dart';
@@ -363,7 +364,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+
+                       Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RequestVerificationScreen(),
+                      ),
+                    ).then((value) {
+                      // ✅ إذا نجح التفعيل، نقوم بتحديث البروفايل
+                      if (value == true) {
+                        print('✅ Account verified, refreshing profile...');
+                        final profileCubit = context.read<ProfileCubit>();
+                        if (widget.userId == null) {
+                          profileCubit.getMyProfile();
+                        } else {
+                          profileCubit.getUserProfile(widget.userId!);
+                        }
+                      }
+                    });
+                    },
                     style: TextButton.styleFrom(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

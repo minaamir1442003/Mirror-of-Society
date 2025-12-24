@@ -1,6 +1,7 @@
 // lib/presentation/screens/main_app/main_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:app_1/presentation/screens/main_app/home/Cubit/home_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
 import 'package:app_1/presentation/widgets/layout/bottom_nav_bar.dart';
 import 'home/screen/home_screen.dart';
@@ -14,7 +15,7 @@ class MainScreen extends StatefulWidget {
   _MainScreenState createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   int _notificationCount = 5;
   String? _selectedCategory;
@@ -24,19 +25,15 @@ class _MainScreenState extends State<MainScreen> {
       
   final PageController _pageController = PageController();
   
-  // ✅ تحديث getter للشاشات ليتضمن ProfileScreen مع cache
+  // ✅ استخدام KeepAlive للحفاظ على حالة الشاشات
   List<Widget> get _screens => [
-    HomeScreen(
-      initialCategory: _selectedCategory,
-      onCategoryChange: _onHomeCategoryChange,
-    ),
-    CategoriesScreen(
+    KeepAliveWidget(child: HomeScreen()),
+    KeepAliveWidget(child: CategoriesScreen(
       onCategorySelected: _onCategorySelected,
-    ),
-    Container(),
-    NotificationsScreen(),
-    // ✅ ProfileScreen بدون userId (يعني البروفايل الخاص بالمستخدم)
-    ProfileScreen(userId: null),
+    )),
+    Container(), // Create Bolt (يتم فتحه في صفحة جديدة)
+    KeepAliveWidget(child: NotificationsScreen()),
+    KeepAliveWidget(child: ProfileScreen(userId: null)),
   ];
   
   // ✅ متغير لتتبع إذا كان البروفايل بحاجة لتحديث
@@ -46,6 +43,42 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _setupPageControllerListener();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // ✅ مراقبة حالة التطبيق
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // عندما يعود التطبيق من الخلفية
+      _checkForUpdates();
+    }
+  }
+  
+  void _checkForUpdates() {
+    // تحديث البيانات عند العودة للتطبيق
+    if (_currentIndex == 0) {
+      try {
+        final homeCubit = context.read<HomeCubit>();
+        // استخدام refreshDataInBackground بدلاً من _refreshDataInBackground
+        _refreshHomeDataInBackground(homeCubit);
+      } catch (e) {
+        print('⚠️ Error checking for updates: $e');
+      }
+    }
+  }
+  
+  void _refreshHomeDataInBackground(HomeCubit homeCubit) {
+    // يمكننا تنفيذ تحديث خلفي هنا إذا كان لدينا دالة public للقيام بذلك
+    // أو نترك الـ Cubit يتولى ذلك تلقائياً
+    print('🔄 Checking for home data updates...');
   }
 
   // ✅ إضافة listener للـ PageController
@@ -114,12 +147,12 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _refreshHomeScreen() {
-    setState(() {
-      _screens[0] = HomeScreen(
-        initialCategory: _selectedCategory,
-        onCategoryChange: _onHomeCategoryChange,
-      );
-    });
+    // ✅ نحتاج فقط لإعادة بناء HomeScreen إذا كانت في الحاجة للتحديث
+    // في حالتنا، الـ HomeCubit يدير البيانات، لذا يمكننا فقط استدعاء refresh
+    if (_currentIndex == 0) {
+      final homeCubit = context.read<HomeCubit>();
+      homeCubit.refresh();
+    }
   }
 
   // ✅ دالة لتحديث شاشة البروفايل
@@ -152,7 +185,7 @@ class _MainScreenState extends State<MainScreen> {
   // ✅ دالة لتحديث شاشة الإشعارات
   void _refreshNotificationsScreen() {
     setState(() {
-      _screens[3] = NotificationsScreen();
+      // لإعادة بناء NotificationsScreen
     });
   }
 
@@ -208,10 +241,26 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+}
 
+// ✅ Widget مساعد للحفاظ على حالة الشاشات
+class KeepAliveWidget extends StatefulWidget {
+  final Widget child;
+  
+  const KeepAliveWidget({Key? key, required this.child}) : super(key: key);
+  
   @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  State<KeepAliveWidget> createState() => _KeepAliveWidgetState();
+}
+
+class _KeepAliveWidgetState extends State<KeepAliveWidget>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true; // ✅ هذا يحافظ على الحالة
+  
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

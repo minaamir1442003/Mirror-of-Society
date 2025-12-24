@@ -1,26 +1,36 @@
-// lib/screens/create_bolt_screen.dart
-import 'package:app_1/core/theme/app_theme.dart';
+import 'package:app_1/presentation/screens/main_app/create_bolt/cubits/telegram_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/create_bolt/cubits/telegram_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:app_1/core/theme/app_theme.dart';
 
 class CreateBoltScreen extends StatefulWidget {
+  const CreateBoltScreen({Key? key}) : super(key: key);
+
   @override
   _CreateBoltScreenState createState() => _CreateBoltScreenState();
 }
 
 class _CreateBoltScreenState extends State<CreateBoltScreen> {
   final TextEditingController _controller = TextEditingController();
-  String selectedCategory = 'عامة';
-  bool isAd = false;
-  int charCount = 0;
+  int? _selectedCategoryId;
+  bool _isAd = false;
+  int _charCount = 0;
 
-  final List<Map<String, dynamic>> categories = [
-    {'name': 'عامة', 'color': AppTheme.categoryColors['عامة']!},
-    {'name': 'تكنولوجيا', 'color': AppTheme.categoryColors['تكنولوجيا']!},
-    {'name': 'رياضة', 'color': AppTheme.categoryColors['رياضة']!},
-    {'name': 'فن', 'color': AppTheme.categoryColors['فن']!},
-    {'name': 'سياسة', 'color': AppTheme.categoryColors['سياسة']!},
-    {'name': 'اقتصاد', 'color': AppTheme.categoryColors['اقتصاد']!},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // تحميل الفئات عند فتح الشاشة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TelegramCubit>().loadCategories();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,16 +44,56 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
         actions: [
           Container(
             margin: EdgeInsets.only(left: 12),
-            child: ElevatedButton(
-              onPressed: charCount > 0 ? _postBolt : null,
-              style: ElevatedButton.styleFrom(
-                fixedSize: Size(90, 30),
-                backgroundColor: AppTheme.primaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: Text('نشر', style: TextStyle(color: Colors.white)),
+            child: BlocConsumer<TelegramCubit, TelegramState>(
+              listener: (context, state) {
+                if (state is TelegramCreated) {
+                  // إظهار رسالة نجاح
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('تم نشر البرقية بنجاح!'),
+                      backgroundColor: AppTheme.successColor,
+                    ),
+                  );
+                  // العودة للشاشة السابقة
+                  Navigator.pop(context);
+                } else if (state is TelegramError) {
+                  // إظهار رسالة خطأ
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(state.message),
+                      backgroundColor: AppTheme.dangerColor,
+                    ),
+                  );
+                }
+              },
+              builder: (context, state) {
+                final isCreating = state is TelegramCreating;
+                
+                return ElevatedButton(
+                  onPressed: (!isCreating && _canPost())
+                      ? _postBolt
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    fixedSize: Size(90, 30),
+                    backgroundColor: isCreating
+                        ? AppTheme.lightGray
+                        : (_canPost() ? AppTheme.primaryColor : AppTheme.lightGray),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: isCreating
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text('نشر', style: TextStyle(color: Colors.white)),
+                );
+              },
             ),
           ),
         ],
@@ -68,7 +118,7 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
                 style: TextStyle(fontSize: 20, height: 1.5),
                 onChanged: (value) {
                   setState(() {
-                    charCount = value.length;
+                    _charCount = value.length;
                   });
                 },
               ),
@@ -86,46 +136,80 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
   }
 
   Widget _buildCategorySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'التصنيف',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.secondaryColor,
-            fontSize: 16,
-          ),
-        ),
-        SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: categories.map((category) {
-            bool isSelected = selectedCategory == category['name'];
-            return ChoiceChip(
-              label: Text(category['name']),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  selectedCategory = category['name'];
-                });
-              },
-              backgroundColor: isSelected 
-                  ? category['color'].withOpacity(0.2)
-                  : AppTheme.extraLightGray,
-              selectedColor: category['color'].withOpacity(0.3),
-              labelStyle: TextStyle(
-                color: isSelected ? category['color'] : AppTheme.darkGray,
-                fontWeight: FontWeight.w500,
+    return BlocBuilder<TelegramCubit, TelegramState>(
+      builder: (context, state) {
+        if (state is TelegramLoading) {
+          return Center(child: CircularProgressIndicator());
+        } else if (state is CategoriesLoaded) {
+          final categories = state.categories;
+          
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'التصنيف',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.secondaryColor,
+                  fontSize: 16,
+                ),
               ),
-              side: BorderSide(
-                color: isSelected ? category['color'] : Colors.transparent,
+              SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: categories.map((category) {
+                  bool isSelected = _selectedCategoryId == category.id;
+                  Color categoryColor = _hexToColor(category.color);
+                  
+                  return ChoiceChip(
+                    label: Text(category.name),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedCategoryId = category.id;
+                        } else if (_selectedCategoryId == category.id) {
+                          _selectedCategoryId = null;
+                        }
+                      });
+                    },
+                    backgroundColor: isSelected 
+                        ? categoryColor.withOpacity(0.2)
+                        : AppTheme.extraLightGray,
+                    selectedColor: categoryColor.withOpacity(0.3),
+                    labelStyle: TextStyle(
+                      color: isSelected ? categoryColor : AppTheme.darkGray,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    side: BorderSide(
+                      color: isSelected ? categoryColor : Colors.transparent,
+                    ),
+                  );
+                }).toList(),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ],
+          );
+        } else if (state is TelegramError) {
+          return Column(
+            children: [
+              Text(
+                'فشل في تحميل الفئات',
+                style: TextStyle(color: AppTheme.dangerColor),
+              ),
+              SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  context.read<TelegramCubit>().loadCategories(forceRefresh: true);
+                },
+                child: Text('إعادة المحاولة'),
+              ),
+            ],
+          );
+        }
+        
+        return SizedBox();
+      },
     );
   }
 
@@ -144,10 +228,10 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
           ),
         ),
         Switch(
-          value: isAd,
+          value: _isAd,
           onChanged: (value) {
             setState(() {
-              isAd = value;
+              _isAd = value;
             });
           },
           activeColor: Colors.orange,
@@ -161,9 +245,9 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          '$charCount / 250',
+          '$_charCount / 250',
           style: TextStyle(
-            color: charCount > 250 ? AppTheme.dangerColor : AppTheme.darkGray,
+            color: _charCount > 250 ? AppTheme.dangerColor : AppTheme.darkGray,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -171,15 +255,21 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
           children: [
             IconButton(
               icon: Icon(Icons.image_outlined, color: AppTheme.primaryColor),
-              onPressed: () {},
+              onPressed: () {
+                // TODO: إضافة صورة
+              },
             ),
             IconButton(
               icon: Icon(Icons.tag, color: AppTheme.primaryColor),
-              onPressed: () {},
+              onPressed: () {
+                // TODO: إضافة هاشتاج
+              },
             ),
             IconButton(
               icon: Icon(Icons.location_on_outlined, color: AppTheme.primaryColor),
-              onPressed: () {},
+              onPressed: () {
+                // TODO: إضافة موقع
+              },
             ),
           ],
         ),
@@ -188,13 +278,38 @@ class _CreateBoltScreenState extends State<CreateBoltScreen> {
   }
 
   void _postBolt() {
-    // هنا كود نشر البرقية
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم نشر البرقية بنجاح!'),
-        backgroundColor: AppTheme.successColor,
-      ),
+    if (!_canPost()) return;
+
+    final content = _controller.text.trim();
+    
+    if (_selectedCategoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('الرجاء اختيار تصنيف'),
+          backgroundColor: Color(0xFFFFC107),
+        ),
+      );
+      return;
+    }
+
+    context.read<TelegramCubit>().createTelegram(
+      content: content,
+      categoryId: _selectedCategoryId!,
+      isAd: _isAd,
     );
+  }
+
+  bool _canPost() {
+    return _charCount > 0 && 
+           _charCount <= 250 && 
+           _selectedCategoryId != null;
+  }
+
+  Color _hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) {
+      hex = 'FF$hex';
+    }
+    return Color(int.parse(hex, radix: 16));
   }
 }

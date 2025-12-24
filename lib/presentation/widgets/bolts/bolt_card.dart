@@ -1,6 +1,7 @@
 import 'package:app_1/data/models/user_model.dart';
 import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:app_1/presentation/screens/main_app/home/user_screen.dart';
+import 'package:app_1/presentation/screens/main_app/user_profile/screens/user_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
@@ -368,16 +369,19 @@ class _BoltCardState extends State<BoltCard> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [Padding(
-                    padding: 
-                    context.watch<LanguageProvider>().getCurrentLanguageName() ==
-                    'العربية'
-                ?
-                     EdgeInsets.only(right: 20.0):
-                     EdgeInsets.only(left: 20.0)
-                     ,
-                    child: _buildUserInfo(),
-                  ), _buildSettingsMenu()],
+                  children: [
+                    Padding(
+                      padding:
+                          context
+                                      .watch<LanguageProvider>()
+                                      .getCurrentLanguageName() ==
+                                  'العربية'
+                              ? EdgeInsets.only(right: 20.0)
+                              : EdgeInsets.only(left: 20.0),
+                      child: _buildUserInfo(),
+                    ),
+                    _buildSettingsMenu(),
+                  ],
                 ),
                 SizedBox(height: 15.h),
                 Flexible(
@@ -413,34 +417,51 @@ class _BoltCardState extends State<BoltCard> {
         children: [
           Stack(
             children: [
-              CircleAvatar(
-                radius: 23.r,
-                backgroundImage:
-                    widget.bolt.userImage.startsWith('http')
-                        ? NetworkImage(widget.bolt.userImage)
-                        : AssetImage(widget.bolt.userImage) as ImageProvider,
+              GestureDetector(
+                onTap: () {
+                  print(widget.bolt.userId);
+                  //                 Navigator.push(
+                  //   context,
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => UserProfileScreen(
+                            userId: widget.bolt.userId!, // ✅ تمرير الـ userId
+                            initialName: widget.bolt.userName,
+                            initialImage: widget.bolt.userImage,
+                          ),
+                    ),
+                  );
+                },
+                child: CircleAvatar(
+                  radius: 23.r,
+                  backgroundImage:
+                      widget.bolt.userImage.startsWith('http')
+                          ? NetworkImage(widget.bolt.userImage)
+                          : AssetImage(widget.bolt.userImage) as ImageProvider,
+                ),
               ),
               context.watch<LanguageProvider>().getCurrentLanguageName() ==
-                        'العربية'
-                    ?
-              Positioned(
-                bottom: -4,
-                left: -2,
-                child: Icon(
-                  Icons.bookmark,
-                  color: _getRankColor(widget.bolt.userRank.toString()),
-                  size: 22.sp,
-                ),
-              ):
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Icon(
-                  Icons.bookmark,
-                  color: _getRankColor(widget.bolt.userRank.toString()),
-                  size: 20.sp,
-                ),
-              ),
+                      'العربية'
+                  ? Positioned(
+                    bottom: -4,
+                    left: -2,
+                    child: Icon(
+                      Icons.bookmark,
+                      color: _getRankColor(widget.bolt.userRank.toString()),
+                      size: 22.sp,
+                    ),
+                  )
+                  : Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Icon(
+                      Icons.bookmark,
+                      color: _getRankColor(widget.bolt.userRank.toString()),
+                      size: 20.sp,
+                    ),
+                  ),
             ],
           ),
           SizedBox(width: 8.w),
