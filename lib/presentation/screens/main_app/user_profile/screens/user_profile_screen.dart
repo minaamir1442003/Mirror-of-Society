@@ -29,6 +29,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
   bool _showErrorSnackbar = false;
+  bool _showZodiacInfo = false; // ✅ إضافة متغير لعرض/إخفاء معلومات البرج
 
   @override
   void initState() {
@@ -69,7 +70,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ أثناء تحميل المزيد'),
+            content: Text(_getText('حدث خطأ أثناء تحميل المزيد', 'Error loading more')),
             backgroundColor: Colors.red,
           ),
         );
@@ -80,6 +81,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   void _toggleFollow() {
     final cubit = context.read<UserProfileCubit>();
     cubit.toggleFollow();
+  }
+
+  // ✅ دالة للحصول على النص بناءً على اللغة
+  String _getText(String arabicText, String englishText) {
+    final isArabic = context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية';
+    return isArabic ? arabicText : englishText;
   }
 
   @override
@@ -126,12 +133,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         builder: (context, state) {
           // ✅ الحالة الأولية أو التحميل
           if (state is UserProfileLoading && state is! UserProfileLoadingMore) {
-            return _buildLoadingState();
+            return _buildLoadingState(context);
           }
 
           // ✅ حالة الخطأ (بدون بيانات محملة)
           if (state is UserProfileError && state is! UserProfileLoaded && state is! UserProfileLoadingMore) {
-            return _buildErrorState(state);
+            return _buildErrorState(context, state);
           }
 
           // ✅ الحالة العامة - عرض البيانات المحملة
@@ -152,6 +159,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             }
             
             return _buildProfileContent(
+              context,
               userData,
               statistics ?? ProfileStatistics(followersCount: 0, followingCount: 0, telegramsCount: 0),
               telegrams,
@@ -160,33 +168,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           }
 
           // ✅ الحالة الافتراضية - التحميل
-          return _buildLoadingState();
+          return _buildLoadingState(context);
         },
       ),
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildLoadingState(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(widget.initialName ?? 'الملف الشخصي'),
+        title: Text(widget.initialName ?? _getText('الملف الشخصي', 'Profile')),
       ),
       body: LoadingIndicator(),
     );
   }
 
-  Widget _buildErrorState(UserProfileError state) {
+  Widget _buildErrorState(BuildContext context, UserProfileError state) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(widget.initialName ?? 'الملف الشخصي'),
+        title: Text(widget.initialName ?? _getText('الملف الشخصي', 'Profile')),
       ),
       body: Center(
         child: Column(
@@ -195,7 +203,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             Icon(Icons.error_outline, size: 64, color: Colors.red),
             SizedBox(height: 16),
             Text(
-              'حدث خطأ',
+              _getText('حدث خطأ', 'Error'),
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
@@ -203,7 +211,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadUserProfile,
-              child: Text('إعادة المحاولة'),
+              child: Text(_getText('إعادة المحاولة', 'Retry')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Color(0xFF1DA1F2),
                 foregroundColor: Colors.white,
@@ -216,6 +224,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildProfileContent(
+    BuildContext context,
     UserData user,
     ProfileStatistics statistics,
     List<FeedItem> telegrams,
@@ -246,7 +255,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: _buildCoverImage(user),
+              background: _buildCoverImage(context, user),
             ),
           ),
 
@@ -254,22 +263,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           SliverToBoxAdapter(
             child: Column(
               children: [
-                _buildProfileDetails(user, statistics),
+                _buildProfileDetails(context, user, statistics),
               ],
             ),
           ),
 
           // ✅ البرقيات
-          _buildTelegramsSliver(telegrams, user),
+          _buildTelegramsSliver(context, telegrams, user),
 
           // ✅ مؤشر التحميل الإضافي
-          _buildLoadingMoreIndicator(isLoadingMore),
+          _buildLoadingMoreIndicator(context, isLoadingMore),
         ],
       ),
     );
   }
 
-  Widget _buildCoverImage(UserData user) {
+  Widget _buildCoverImage(BuildContext context, UserData user) {
     return Stack(
       children: [
         user.cover.isNotEmpty
@@ -285,7 +294,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
 
         // ✅ صورة الملف الشخصي
-        Positioned(bottom: 10, left: 10, child: _buildProfileAvatar(user)),
+        Positioned(bottom: 10, left: 10, child: _buildProfileAvatar(context, user)),
 
         // ✅ أيقونة الرتبة
         Positioned(
@@ -301,7 +310,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildProfileAvatar(UserData user) {
+  Widget _buildProfileAvatar(BuildContext context, UserData user) {
     return Stack(
       children: [
         Container(
@@ -343,7 +352,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildProfileDetails(UserData user, ProfileStatistics stats) {
+  Widget _buildProfileDetails(BuildContext context, UserData user, ProfileStatistics stats) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -370,36 +379,53 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            user.fullName,
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          SizedBox(width: 15),
-                          GestureDetector(
-                            onTap: () {},
-                            child: _getZodiacEmoji(user.zodiac ?? '', user.shareZodiac),
-                          ),
-                        ],
-                      ),
+                          Row(
+                            children: [
+                              Text(
+                                user.fullName,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(width: 15),
+                              // ✅ جعل رمز البرج قابل للنقر لعرض/إخفاء المعلومات
+                             if (user.zodiacIcon != null && user.zodiacIcon!.isNotEmpty)
+                              GestureDetector(
+                                onTap: () {
+                                  if (user.shareZodiac) {
+                                    setState(() {
+                                      _showZodiacInfo = !_showZodiacInfo;
+                                    });
+                                  }
+                                },
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    user.zodiacIcon!,
+                                    width: 38,
+                                    height: 38,
+                                    fit: BoxFit.cover,
+                                    color: user.shareZodiac 
+                                        ? null 
+                                        : Colors.grey,
+                                    colorBlendMode: user.shareZodiac 
+                                        ? BlendMode.srcIn 
+                                        : BlendMode.saturation,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        _buildFollowButton(context, user.isFollowing),
+                      ],
+                    ),
+                      
                       SizedBox(height: 2),
-                      Row(
-                        children: [
-                          SizedBox(width: 6),
-                          Text(
-                            '@${user.email.split('@').first}',
-                            style: TextStyle(
-                              color: Color(0xFF666666),
-                              fontSize: 15,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                        ],
-                      ),
+                    
                       SizedBox(height: 15),
                     ],
                   ),
@@ -424,22 +450,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ],
               ),
 
-            // ✅ معلومات البرج
-            if (user.shareZodiac && user.zodiac != null && user.zodiac!.isNotEmpty)
+            // ✅ معلومات البرج (تظهر/تختفي عند النقر على الرمز)
+            if (user.shareZodiac && user.zodiac != null && user.zodiac!.isNotEmpty && _showZodiacInfo)
               Column(
                 children: [
-                  _buildZodiacInfoCard(user),
+                  _buildZodiacInfoCard(context, user),
                   SizedBox(height: 24),
                 ],
               ),
 
             // ✅ الإحصائيات
-            _buildStatsRow(stats),
+            _buildStatsRow(context, stats),
 
             SizedBox(height: 32),
 
             // ✅ زر المتابعة
-            _buildFollowButton(user.isFollowing),
+            
 
             SizedBox(height: 32),
           ],
@@ -448,56 +474,52 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildFollowButton(bool isFollowing) {
-    return Container(
-      height: 50,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: isFollowing
-            ? LinearGradient(colors: [Colors.grey[600]!, Colors.grey[700]!])
-            : LinearGradient(colors: [Color(0xFF1DA1F2), Color(0xFF0077B6)]),
-        boxShadow: [
-          BoxShadow(
-            color: isFollowing
-                ? Colors.grey.withOpacity(0.3)
-                : Color(0xFF1DA1F2).withOpacity(0.3),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextButton(
-        onPressed: _toggleFollow,
-        style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+  Widget _buildFollowButton(BuildContext context, bool isFollowing) {
+  return AnimatedContainer(
+    duration: Duration(milliseconds: 300),
+    width: 60,
+    height: 60,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: isFollowing
+          ? LinearGradient(
+              colors: [Colors.red[400]!, Colors.red[700]!],
+            )
+          : LinearGradient(
+              colors: [Color(0xFF1DA1F2), Color(0xFF0D8BF0)],
+            ),
+      boxShadow: [
+        BoxShadow(
+          color: isFollowing
+              ? Colors.red.withOpacity(0.3)
+              : Color(0xFF1DA1F2).withOpacity(0.3),
+          blurRadius: 10,
+          offset: Offset(0, 4),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
+      ],
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _toggleFollow,
+        borderRadius: BorderRadius.circular(30),
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: Duration(milliseconds: 300),
+            child: Icon(
               isFollowing ? Icons.person_remove : Icons.person_add,
+              key: ValueKey<bool>(isFollowing),
               color: Colors.white,
-              size: 20,
+              size: 28,
             ),
-            SizedBox(width: 8),
-            Text(
-              isFollowing ? 'متابَع' : 'متابعة',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildZodiacInfoCard(UserData user) {
+  Widget _buildZodiacInfoCard(BuildContext context, UserData user) {
     return Container(
       margin: EdgeInsets.only(bottom: 24),
       padding: EdgeInsets.all(20),
@@ -548,7 +570,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'برج ${user.zodiac}',
+                      _getText('برج ${user.zodiac}', '${user.zodiac} Zodiac'),
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -556,7 +578,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                     ),
                     Text(
-                      '${_getZodiacSymbol(user.zodiac ?? '')}',
+                      _getZodiacSymbol(user.zodiac ?? '', context),
                       style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
@@ -574,7 +596,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           Text(
             user.zodiacDescription?.isNotEmpty == true
                 ? user.zodiacDescription!
-                : '${user.zodiac} قادة بالفطرة. إنهم دراميون ومبدعون وواثقون من أنفسهم ومهيمنون ومن الصعب للغاية مقاومتهم.',
+                : _getText(
+                    '${user.zodiac} قادة بالفطرة. إنهم دراميون ومبدعون وواثقون من أنفسهم ومهيمنون ومن الصعب للغاية مقاومتهم.',
+                    '${user.zodiac} are natural leaders. They are dramatic, creative, self-confident, dominant, and very difficult to resist.'
+                  ),
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[800],
@@ -601,7 +626,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildStatsRow(ProfileStatistics stats) {
+  Widget _buildStatsRow(BuildContext context, ProfileStatistics stats) {
     return Container(
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -619,20 +644,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(
+            context,
             stats.telegramsCount.toString(),
-            'البرقيات',
+            _getText('البرقيات', 'Telegrams'),
             Icons.message_outlined,
             Colors.orange,
           ),
           _buildStatItem(
+            context,
             stats.followersCount.toString(),
-            'متابعون',
+            _getText('متابعون', 'Followers'),
             Icons.group_outlined,
             Colors.green,
           ),
           _buildStatItem(
+            context,
             stats.followingCount.toString(),
-            'متابَعون',
+            _getText('متابَعون', 'Following'),
             Icons.group_add_outlined,
             Colors.blue,
           ),
@@ -642,6 +670,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildStatItem(
+    BuildContext context,
     String value,
     String label,
     IconData icon,
@@ -688,7 +717,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildTelegramsSliver(List<FeedItem> telegrams, UserData user) {
+  Widget _buildTelegramsSliver(BuildContext context, List<FeedItem> telegrams, UserData user) {
     final cubit = context.read<UserProfileCubit>();
 
     if (telegrams.isEmpty && !cubit.hasMore) {
@@ -700,7 +729,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               Icon(Icons.message_outlined, size: 64, color: Colors.grey[400]),
               SizedBox(height: 16),
               Text(
-                'لا توجد برقيات',
+                _getText('لا توجد برقيات', 'No telegrams'),
                 style: TextStyle(color: Colors.grey[600], fontSize: 16),
               ),
             ],
@@ -726,7 +755,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   BoltModel _feedItemToBoltModel(FeedItem feedItem, BuildContext context, UserData user, int orderNumber) {
     return feedItem.toBoltModel(
       onLikePressed: () => _handleLike(feedItem, context),
-      onCommentPressed: () => _handleComment(feedItem),
+      onCommentPressed: () => _handleComment(feedItem, context),
       onSharePressed: () => _handleRepost(feedItem, context),
     ).copyWith(
       // ✅ إضافة ترتيب البرقية
@@ -737,18 +766,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _handleLike(FeedItem feedItem, BuildContext context) {
-    print('تم الإعجاب بالبرقية ${feedItem.id}');
+    print(_getText('تم الإعجاب بالبرقية', 'Liked telegram') + ' ${feedItem.id}');
   }
 
-  void _handleComment(FeedItem feedItem) {
-    print('فتح التعليقات للبرقية ${feedItem.id}');
+  void _handleComment(FeedItem feedItem, BuildContext context) {
+    print(_getText('فتح التعليقات للبرقية', 'Opening comments for telegram') + ' ${feedItem.id}');
   }
 
   void _handleRepost(FeedItem feedItem, BuildContext context) {
-    print('إعادة نشر البرقية ${feedItem.id}');
+    print(_getText('إعادة نشر البرقية', 'Reposting telegram') + ' ${feedItem.id}');
   }
 
-  Widget _buildLoadingMoreIndicator(bool isLoadingMore) {
+  Widget _buildLoadingMoreIndicator(BuildContext context, bool isLoadingMore) {
     final cubit = context.read<UserProfileCubit>();
 
     if (isLoadingMore) {
@@ -761,7 +790,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 CircularProgressIndicator(color: Color(0xFF1DA1F2)),
                 SizedBox(height: 8),
                 Text(
-                  'جاري تحميل المزيد...',
+                  _getText('جاري تحميل المزيد...', 'Loading more...'),
                   style: TextStyle(color: Color(0xFF666666), fontSize: 14),
                 ),
               ],
@@ -775,7 +804,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           padding: EdgeInsets.all(20),
           child: Center(
             child: Text(
-              'تم تحميل جميع البرقيات',
+              _getText('تم تحميل جميع البرقيات', 'All telegrams loaded'),
               style: TextStyle(color: Color(0xFF666666), fontSize: 14),
             ),
           ),
@@ -898,46 +927,91 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  String _getZodiacSymbol(String zodiac) {
-    switch (zodiac.toLowerCase()) {
-      case 'الحمل':
-      case 'aries':
-        return '♈ البرج الناري | 21 مارس - 19 أبريل';
-      case 'الثور':
-      case 'taurus':
-        return '♉ البرج الترابي | 20 أبريل - 20 مايو';
-      case 'الجوزاء':
-      case 'gemini':
-        return '♊ البرج الهوائي | 21 مايو - 20 يونيو';
-      case 'السرطان':
-      case 'cancer':
-        return '♋ البرج المائي | 21 يونيو - 22 يوليو';
-      case 'الأسد':
-      case 'leo':
-        return '♌ البرج الناري | 23 يوليو - 22 أغسطس';
-      case 'العذراء':
-      case 'virgo':
-        return '♍ البرج الترابي | 23 أغسطس - 22 سبتمبر';
-      case 'الميزان':
-      case 'libra':
-        return '♎ البرج الهوائي | 23 سبتمبر - 22 أكتوبر';
-      case 'العقرب':
-      case 'scorpio':
-        return '♏ البرج المائي | 23 أكتوبر - 21 نوفمبر';
-      case 'القوس':
-      case 'sagittarius':
-        return '♐ البرج الناري | 22 نوفمبر - 21 ديسمبر';
-      case 'الجدي':
-      case 'capricorn':
-        return '♑ البرج الترابي | 22 ديسمبر - 19 يناير';
-      case 'الدلو':
-      case 'aquarius':
-        return '♒ البرج الهوائي | 20 يناير - 18 فبراير';
-      case 'الحوت':
-      case 'pisces':
-        return '♓ البرج المائي | 19 فبراير - 20 مارس';
-      default:
-        return '♈';
+  String _getZodiacSymbol(String zodiac, BuildContext context) {
+    final isArabic = context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية';
+    
+    if (isArabic) {
+      switch (zodiac.toLowerCase()) {
+        case 'الحمل':
+        case 'aries':
+          return '♈ البرج الناري | 21 مارس - 19 أبريل';
+        case 'الثور':
+        case 'taurus':
+          return '♉ البرج الترابي | 20 أبريل - 20 مايو';
+        case 'الجوزاء':
+        case 'gemini':
+          return '♊ البرج الهوائي | 21 مايو - 20 يونيو';
+        case 'السرطان':
+        case 'cancer':
+          return '♋ البرج المائي | 21 يونيو - 22 يوليو';
+        case 'الأسد':
+        case 'leo':
+          return '♌ البرج الناري | 23 يوليو - 22 أغسطس';
+        case 'العذراء':
+        case 'virgo':
+          return '♍ البرج الترابي | 23 أغسطس - 22 سبتمبر';
+        case 'الميزان':
+        case 'libra':
+          return '♎ البرج الهوائي | 23 سبتمبر - 22 أكتوبر';
+        case 'العقرب':
+        case 'scorpio':
+          return '♏ البرج المائي | 23 أكتوبر - 21 نوفمبر';
+        case 'القوس':
+        case 'sagittarius':
+          return '♐ البرج الناري | 22 نوفمبر - 21 ديسمبر';
+        case 'الجدي':
+        case 'capricorn':
+          return '♑ البرج الترابي | 22 ديسمبر - 19 يناير';
+        case 'الدلو':
+        case 'aquarius':
+          return '♒ البرج الهوائي | 20 يناير - 18 فبراير';
+        case 'الحوت':
+        case 'pisces':
+          return '♓ البرج المائي | 19 فبراير - 20 مارس';
+        default:
+          return '♈';
+      }
+    } else {
+      switch (zodiac.toLowerCase()) {
+        case 'aries':
+        case 'الحمل':
+          return '♈ Fire Sign | Mar 21 - Apr 19';
+        case 'taurus':
+        case 'الثور':
+          return '♉ Earth Sign | Apr 20 - May 20';
+        case 'gemini':
+        case 'الجوزاء':
+          return '♊ Air Sign | May 21 - Jun 20';
+        case 'cancer':
+        case 'السرطان':
+          return '♋ Water Sign | Jun 21 - Jul 22';
+        case 'leo':
+        case 'الأسد':
+          return '♌ Fire Sign | Jul 23 - Aug 22';
+        case 'virgo':
+        case 'العذراء':
+          return '♍ Earth Sign | Aug 23 - Sep 22';
+        case 'libra':
+        case 'الميزان':
+          return '♎ Air Sign | Sep 23 - Oct 22';
+        case 'scorpio':
+        case 'العقرب':
+          return '♏ Water Sign | Oct 23 - Nov 21';
+        case 'sagittarius':
+        case 'القوس':
+          return '♐ Fire Sign | Nov 22 - Dec 21';
+        case 'capricorn':
+        case 'الجدي':
+          return '♑ Earth Sign | Dec 22 - Jan 19';
+        case 'aquarius':
+        case 'الدلو':
+          return '♒ Air Sign | Jan 20 - Feb 18';
+        case 'pisces':
+        case 'الحوت':
+          return '♓ Water Sign | Feb 19 - Mar 20';
+        default:
+          return '♈';
+      }
     }
   }
 

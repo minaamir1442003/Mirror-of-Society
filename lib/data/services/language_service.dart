@@ -102,4 +102,9 @@ class LanguageService {
     final language = await getSavedLanguage();
     return language == 'العربية';
   }
+    Future<String> getCurrentLanguageCode() async {
+    final language = await getSavedLanguage();
+    return getLanguageCode(language);
+  }
+
 }

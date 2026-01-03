@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:app_1/core/constants/api_const.dart';
 import 'package:app_1/presentation/screens/main_app/profile/models/profile_response.dart';
 import 'package:dio/dio.dart';
@@ -18,18 +20,9 @@ class ProfileRepository {
       
       print('✅ Profile page $page response received');
       
-      // طباعة معلومات الـ Pagination إذا كانت موجودة
-      final data = response.data['data'] ?? {};
-      final telegrams = data['telegrams'] ?? {};
-      if (telegrams['pagination'] != null) {
-        final pagination = telegrams['pagination'];
-        print('📊 Pagination Data:');
-        print('   - current_page: ${pagination['current_page']}');
-        print('   - last_page: ${pagination['last_page']}');
-        print('   - per_page: ${pagination['per_page']}');
-        print('   - total: ${pagination['total']}');
-        print('   - hasMore: ${(pagination['current_page'] ?? 1) < (pagination['last_page'] ?? 1)}');
-      }
+      // ✅ التحقق من هيكل البيانات
+      print('🔍 Response data structure:');
+      print(jsonEncode(response.data));
       
       return ProfileResponse.fromJson(response.data);
     } on DioException catch (e) {

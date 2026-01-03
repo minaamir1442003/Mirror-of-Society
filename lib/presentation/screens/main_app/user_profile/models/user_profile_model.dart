@@ -25,12 +25,7 @@ class InterestModel {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'color': color,
-      'icon': icon,
-    };
+    return {'id': id, 'name': name, 'color': color, 'icon': icon};
   }
 }
 
@@ -87,6 +82,7 @@ class UserData {
   final String image;
   final String cover;
   final String? zodiac;
+  final String? zodiacIcon;
   final String? zodiacDescription;
   final bool shareLocation;
   final bool shareZodiac;
@@ -108,6 +104,7 @@ class UserData {
     this.zodiacDescription,
     required this.shareLocation,
     required this.shareZodiac,
+    required this.zodiacIcon,
     this.birthdate,
     this.country,
     required this.interests,
@@ -127,17 +124,21 @@ class UserData {
       image: json['image'] ?? '',
       cover: json['cover'] ?? '',
       zodiac: json['zodiac'],
+       zodiacIcon: json['zodiac_icon'],
       zodiacDescription: json['zodiac_description'],
       shareLocation: json['share_location'] ?? false,
       shareZodiac: json['share_zodiac'] ?? false,
-      birthdate: json['birthdate'] != null 
-          ? DateTime.parse(json['birthdate'])
-          : null,
+      birthdate:
+          json['birthdate'] != null ? DateTime.parse(json['birthdate']) : null,
       country: json['country'],
       // ✅ التصحيح هنا: تحويل List<Map> إلى List<InterestModel>
-      interests: (json['interests'] as List<dynamic>?)
-          ?.map((item) => InterestModel.fromJson(item as Map<String, dynamic>))
-          .toList() ?? [],
+      interests:
+          (json['interests'] as List<dynamic>?)
+              ?.map(
+                (item) => InterestModel.fromJson(item as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
       isFollowing: json['is_following'] ?? false,
     );
   }
@@ -156,6 +157,7 @@ class UserData {
       'zodiac_description': zodiacDescription,
       'share_location': shareLocation,
       'share_zodiac': shareZodiac,
+      'zodiac_icon': zodiacIcon,
       'birthdate': birthdate?.toIso8601String(),
       'country': country,
       'interests': interests.map((interest) => interest.toJson()).toList(),
@@ -178,6 +180,7 @@ class UserData {
     bool? shareLocation,
     bool? shareZodiac,
     DateTime? birthdate,
+    String? zodiacIcon,
     String? country,
     List<InterestModel>? interests,
     bool? isFollowing,
@@ -197,6 +200,7 @@ class UserData {
       shareZodiac: shareZodiac ?? this.shareZodiac,
       birthdate: birthdate ?? this.birthdate,
       country: country ?? this.country,
+      zodiacIcon: zodiacIcon ?? this.zodiacIcon,
       interests: interests ?? this.interests,
       isFollowing: isFollowing ?? this.isFollowing,
     );
@@ -261,16 +265,15 @@ class UserTelegrams {
   final List<FeedItem> data;
   final UserTelegramsPagination pagination;
 
-  UserTelegrams({
-    required this.data,
-    required this.pagination,
-  });
+  UserTelegrams({required this.data, required this.pagination});
 
   factory UserTelegrams.fromJson(Map<String, dynamic> json) {
     return UserTelegrams(
-      data: (json['data'] as List<dynamic>?)
-          ?.map((item) => FeedItem.fromJson(item))
-          .toList() ?? [],
+      data:
+          (json['data'] as List<dynamic>?)
+              ?.map((item) => FeedItem.fromJson(item))
+              .toList() ??
+          [],
       pagination: UserTelegramsPagination.fromJson(json['pagination'] ?? {}),
     );
   }

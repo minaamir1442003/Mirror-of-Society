@@ -1,5 +1,3 @@
-
-
 import 'package:app_1/core/constants/api_const.dart';
 import 'package:app_1/presentation/screens/main_app/home/Models/home_feed_model.dart';
 import 'package:dio/dio.dart';
@@ -64,29 +62,7 @@ class HomeRepository {
     }
   }
   
-  // ✅ 3. جلب كل التصنيفات
-  Future<List<Category>> getCategories() async {
-    try {
-      final response = await _dio.get(
-        '${ApiConstants.apiBaseUrl}/categories',
-      );
-      
-      if (response.data['status'] != true) {
-        throw Exception(response.data['message'] ?? 'فشل تحميل التصنيفات');
-      }
-      
-      final categories = (response.data['data'] as List)
-          .map((item) => Category.fromJson(item))
-          .toList();
-      
-      return categories;
-    } catch (e) {
-      print('❌ خطأ في تحميل التصنيفات: $e');
-      throw Exception('فشل تحميل التصنيفات');
-    }
-  }
-  
-  // ✅ 4. دوال التفاعل
+  // ✅ 3. دوال التفاعل
   Future<void> likeTelegram(String telegramId) async {
     try {
       await _dio.post('${ApiConstants.apiBaseUrl}/telegrams/$telegramId/like');

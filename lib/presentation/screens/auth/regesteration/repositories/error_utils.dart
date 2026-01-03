@@ -1,173 +1,82 @@
-// lib/core/utils/error_utils.dart
 class ErrorUtils {
   // تحويل رسائل الخطأ التقنية إلى رسائل مفهومة للمستخدم
   static String translateErrorMessage(String error, {bool isArabic = false}) {
     print('🔍 ErrorUtils: Translating error: $error');
     
-    // تحويل النص إلى صيغة صغيرة لسهولة المقارنة
-    final lowerError = error.toLowerCase();
+    // **بسيط جداً: إذا كانت الرسالة تحتوي على جملة معينة نترجمها**
+    if (error.contains('The email has already been taken')) {
+      return isArabic ? 
+        'البريد الإلكتروني مستخدم بالفعل. يرجى استخدام بريد إلكتروني آخر.' :
+        'The email has already been taken. Please use another email.';
+    }
     
-    // **فحص خاص لرسائل validation error من السيرفر**
-    if (error.contains('validation error') || error.contains('errors: {')) {
-      return _extractValidationMessage(error, isArabic: isArabic);
+    if (error.contains('The phone has already been taken')) {
+      return isArabic ? 
+        'رقم الهاتف مستخدم بالفعل. يرجى استخدام رقم هاتف آخر.' :
+        'The phone has already been taken. Please use another phone number.';
+    }
+    
+    if (error.contains('The interests field is required')) {
+      return isArabic ? 
+        'الاهتمامات مطلوبة. يرجى اختيار 3 اهتمامات على الأقل.' :
+        'Interests are required. Please select at least 3 interests.';
+    }
+    
+    // إذا كانت الرسالة تحتوي على "validation error" نعرض الرسالة الأصلية
+    if (error.toLowerCase().contains('validation error')) {
+      return isArabic ? 
+        'خطأ في التحقق من البيانات: $error' :
+        'Validation error: $error';
     }
     
     // رسائل الأخطاء الشائعة بالعربية
     if (isArabic) {
       // أخطاء الشبكة
-      if (lowerError.contains('connection timeout') ||
-          lowerError.contains('connection error') ||
-          lowerError.contains('network error') ||
-          lowerError.contains('socket')) {
+      if (error.toLowerCase().contains('connection timeout') ||
+          error.toLowerCase().contains('connection error') ||
+          error.toLowerCase().contains('network error') ||
+          error.toLowerCase().contains('socket')) {
         return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.';
       }
       
-      if (lowerError.contains('timeout')) {
+      if (error.toLowerCase().contains('timeout')) {
         return 'انتهت مدة الانتظار للاتصال. يرجى المحاولة مرة أخرى.';
       }
       
       // أخطاء المصادقة
-      if (lowerError.contains('unauthorized') ||
-          lowerError.contains('unauthenticated')) {
+      if (error.toLowerCase().contains('unauthorized') ||
+          error.toLowerCase().contains('unauthenticated')) {
         return 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.';
       }
       
-      // أخطاء التحقق (Validation)
-      if (lowerError.contains('validation') ||
-          lowerError.contains('required') ||
-          lowerError.contains('invalid')) {
-        return _translateValidationError(error, isArabic: true);
-      }
-      
-      // أخطاء التسجيل المحددة
-      if (lowerError.contains('email already exists') ||
-          lowerError.contains('email taken') ||
-          lowerError.contains('البريد الإلكتروني مستخدم') ||
-          lowerError.contains('the email has already been taken')) {
-        return 'البريد الإلكتروني مستخدم بالفعل. يرجى استخدام بريد إلكتروني آخر.';
-      }
-      
-      if (lowerError.contains('phone already exists') ||
-          lowerError.contains('رقم الهاتف مستخدم')) {
-        return 'رقم الهاتف مستخدم بالفعل. يرجى استخدام رقم هاتف آخر.';
-      }
-      
-      if (lowerError.contains('weak password') ||
-          lowerError.contains('كلمة مرور ضعيفة')) {
-        return 'كلمة المرور ضعيفة. يجب أن تحتوي على 8 أحرف على الأقل مع مزيج من الأحرف والأرقام.';
-      }
-      
-      // الافتراضي
-      return 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
+      // الافتراضي - نعرض الرسالة كما هي
+      return error.isNotEmpty ? error : 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.';
     } 
     // رسائل الأخطاء الشائعة بالإنجليزية
     else {
       // Network errors
-      if (lowerError.contains('connection timeout') ||
-          lowerError.contains('connection error') ||
-          lowerError.contains('network error') ||
-          lowerError.contains('socket')) {
+      if (error.toLowerCase().contains('connection timeout') ||
+          error.toLowerCase().contains('connection error') ||
+          error.toLowerCase().contains('network error') ||
+          error.toLowerCase().contains('socket')) {
         return 'Cannot connect to server. Please check your internet connection and try again.';
       }
       
-      if (lowerError.contains('timeout')) {
+      if (error.toLowerCase().contains('timeout')) {
         return 'Connection timeout. Please try again.';
       }
       
       // Authentication errors
-      if (lowerError.contains('unauthorized') ||
-          lowerError.contains('unauthenticated')) {
+      if (error.toLowerCase().contains('unauthorized') ||
+          error.toLowerCase().contains('unauthenticated')) {
         return 'Session expired. Please log in again.';
       }
       
-      // Validation errors
-      if (lowerError.contains('validation') ||
-          lowerError.contains('required') ||
-          lowerError.contains('invalid')) {
-        return _translateValidationError(error, isArabic: false);
-      }
-      
-      // Registration errors
-      if (lowerError.contains('email already exists') ||
-          lowerError.contains('email taken') ||
-          lowerError.contains('the email has already been taken')) {
-        return 'Email address is already registered. Please use another email.';
-      }
-      
-      if (lowerError.contains('phone already exists')) {
-        return 'Phone number is already registered. Please use another phone number.';
-      }
-      
-      if (lowerError.contains('weak password')) {
-        return 'Password is too weak. Must be at least 8 characters with mix of letters and numbers.';
-      }
-      
-      // Default
-      return 'An unexpected error occurred. Please try again.';
+      // Default - نعرض الرسالة كما هي
+      return error.isNotEmpty ? error : 'An unexpected error occurred. Please try again.';
     }
   }
   
-  // دالة خاصة لاستخراج رسائل validation من response السيرفر
-  static String _extractValidationMessage(String error, {bool isArabic = false}) {
-    print('📝 Extracting validation message from: $error');
-    
-    try {
-      // تحليل رسالة الخطأ لاستخراج errors
-      if (error.contains('errors: {')) {
-        final startIndex = error.indexOf('errors: {');
-        final endIndex = error.lastIndexOf('}');
-        
-        if (startIndex != -1 && endIndex != -1) {
-          final errorsString = error.substring(startIndex + 9, endIndex);
-          print('🔍 Errors substring: $errorsString');
-          
-          // استخراج رسائل الخطأ
-          if (errorsString.contains('email:')) {
-            final emailStart = errorsString.indexOf('email:');
-            final emailEnd = errorsString.indexOf(']', emailStart);
-            if (emailStart != -1 && emailEnd != -1) {
-              final emailError = errorsString.substring(emailStart + 6, emailEnd);
-              if (emailError.contains('already been taken')) {
-                return isArabic ? 
-                  'البريد الإلكتروني مستخدم بالفعل. يرجى استخدام بريد إلكتروني آخر.' :
-                  'Email address is already registered. Please use another email.';
-              }
-            }
-          }
-          
-          // يمكن إضافة تحليل لحقول أخرى هنا
-          if (errorsString.contains('phone:')) {
-            return isArabic ? 
-              'رقم الهاتف مستخدم بالفعل. يرجى استخدام رقم هاتف آخر.' :
-              'Phone number is already registered. Please use another phone number.';
-          }
-        }
-      }
-      
-      // رسائل خطأ عامة
-      if (error.contains('The email has already been taken')) {
-        return isArabic ? 
-          'البريد الإلكتروني مستخدم بالفعل. يرجى استخدام بريد إلكتروني آخر.' :
-          'Email address is already registered. Please use another email.';
-      }
-      
-      if (error.contains('validation error')) {
-        return isArabic ? 
-          'حدث خطأ في التحقق من البيانات. يرجى مراجعة المعلومات المدخلة.' :
-          'Validation error occurred. Please check your input data.';
-      }
-      
-    } catch (e) {
-      print('❌ Error extracting validation message: $e');
-    }
-    
-    // الافتراضي إذا لم نتمكن من استخراج رسالة محددة
-    return isArabic ? 
-      'حدث خطأ في التسجيل. يرجى المحاولة مرة أخرى.' :
-      'Registration error occurred. Please try again.';
-  }
-  
-  // باقي الكود يظل كما هو...
   static String _translateValidationError(String error, {required bool isArabic}) {
     final lowerError = error.toLowerCase();
     

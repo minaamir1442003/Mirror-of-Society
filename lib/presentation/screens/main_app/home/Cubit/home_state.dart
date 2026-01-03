@@ -61,6 +61,25 @@ class HomeLoaded extends HomeState {
   );
 }
 
+// ✅ أضف هذه الحالة الجديدة
+class HomeRefreshingWithOverlay extends HomeState {
+  final List<FeedItem> feedItems;
+  final List<OnThisDayEvent> onThisDayEvents;
+  final bool hasMore;
+  
+  const HomeRefreshingWithOverlay({
+    required this.feedItems,
+    required this.onThisDayEvents,
+    required this.hasMore,
+    required super.categories,
+    String? currentCategoryId,
+    String feedType = 'home',
+  }) : super(
+    currentCategoryId: currentCategoryId,
+    feedType: feedType,
+  );
+}
+
 class HomeError extends HomeState {
   final String error;
   final List<FeedItem>? feedItems;

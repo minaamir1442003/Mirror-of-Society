@@ -1,8 +1,12 @@
-import 'package:app_1/presentation/providers/language_provider.dart';
+import 'package:app_1/presentation/screens/main_app/explore/cubits/category_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/explore/cubits/category_state.dart';
+import 'package:app_1/presentation/screens/main_app/explore/models/category_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:app_1/core/theme/app_colors.dart';
+import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/theme/app_colors.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final Function(String)? onCategorySelected;
@@ -13,236 +17,44 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-  // نموذج البيانات من API
-  Map<String, dynamic> apiDataArabic = {
-    "status": true,
-    "message": "Categories fetched successfully",
-    "data": [
-      {
-        "id": 1,
-        "name": "سياسة",
-        "color": "#dc3545",
-        "icon": null,
-        "telegrams_count": 34
-      },
-      {
-        "id": 2,
-        "name": "رياضة",
-        "color": "#28a745",
-        "icon": null,
-        "telegrams_count": 35
-      },
-      {
-        "id": 3,
-        "name": "فن",
-        "color": "#6f42c1",
-        "icon": null,
-        "telegrams_count": 34
-      },
-      {
-        "id": 4,
-        "name": "تكنولوجيا",
-        "color": "#007bff",
-        "icon": null,
-        "telegrams_count": 36
-      },
-      {
-        "id": 5,
-        "name": "صحة",
-        "color": "#17a2b8",
-        "icon": null,
-        "telegrams_count": 26
-      },
-      {
-        "id": 6,
-        "name": "سفر",
-        "color": "#ffc107",
-        "icon": null,
-        "telegrams_count": 38
-      },
-      {
-        "id": 7,
-        "name": "طعام",
-        "color": "#fd7e14",
-        "icon": null,
-        "telegrams_count": 27
-      },
-      {
-        "id": 8,
-        "name": "موضة",
-        "color": "#e83e8c",
-        "icon": null,
-        "telegrams_count": 31
-      },
-      {
-        "id": 9,
-        "name": "علوم",
-        "color": "#20c997",
-        "icon": null,
-        "telegrams_count": 33
-      },
-      {
-        "id": 10,
-        "name": "أعمال",
-        "color": "#343a40",
-        "icon": null,
-        "telegrams_count": 44
-      },
-      {
-        "id": 11,
-        "name": "موسيقى",
-        "color": "#6610f2",
-        "icon": null,
-        "telegrams_count": 33
-      },
-      {
-        "id": 12,
-        "name": "أفلام",
-        "color": "#d63384",
-        "icon": null,
-        "telegrams_count": 37
-      },
-      {
-        "id": 13,
-        "name": "ألعاب",
-        "color": "#198754",
-        "icon": null,
-        "telegrams_count": 26
-      },
-      {
-        "id": 14,
-        "name": "أدب",
-        "color": "#fd7e14",
-        "icon": null,
-        "telegrams_count": 39
-      },
-      {
-        "id": 15,
-        "name": "تعليم",
-        "color": "#0dcaf0",
-        "icon": null,
-        "telegrams_count": 30
-      }
-    ]
-  };
+  final _searchController = TextEditingController();
+  late CategoryCubit _categoryCubit;
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
 
-  Map<String, dynamic> apiDataEnglish = {
-    "status": true,
-    "message": "Categories fetched successfully",
-    "data": [
-      {
-        "id": 1,
-        "name": "Politics",
-        "color": "#dc3545",
-        "icon": null,
-        "telegrams_count": 34
-      },
-      {
-        "id": 2,
-        "name": "Sports",
-        "color": "#28a745",
-        "icon": null,
-        "telegrams_count": 35
-      },
-      {
-        "id": 3,
-        "name": "Arts",
-        "color": "#6f42c1",
-        "icon": null,
-        "telegrams_count": 34
-      },
-      {
-        "id": 4,
-        "name": "Technology",
-        "color": "#007bff",
-        "icon": null,
-        "telegrams_count": 36
-      },
-      {
-        "id": 5,
-        "name": "Health",
-        "color": "#17a2b8",
-        "icon": null,
-        "telegrams_count": 26
-      },
-      {
-        "id": 6,
-        "name": "Travel",
-        "color": "#ffc107",
-        "icon": null,
-        "telegrams_count": 38
-      },
-      {
-        "id": 7,
-        "name": "Food",
-        "color": "#fd7e14",
-        "icon": null,
-        "telegrams_count": 27
-      },
-      {
-        "id": 8,
-        "name": "Fashion",
-        "color": "#e83e8c",
-        "icon": null,
-        "telegrams_count": 31
-      },
-      {
-        "id": 9,
-        "name": "Science",
-        "color": "#20c997",
-        "icon": null,
-        "telegrams_count": 33
-      },
-      {
-        "id": 10,
-        "name": "Business",
-        "color": "#343a40",
-        "icon": null,
-        "telegrams_count": 44
-      },
-      {
-        "id": 11,
-        "name": "Music",
-        "color": "#6610f2",
-        "icon": null,
-        "telegrams_count": 33
-      },
-      {
-        "id": 12,
-        "name": "Movies",
-        "color": "#d63384",
-        "icon": null,
-        "telegrams_count": 37
-      },
-      {
-        "id": 13,
-        "name": "Gaming",
-        "color": "#198754",
-        "icon": null,
-        "telegrams_count": 26
-      },
-      {
-        "id": 14,
-        "name": "Literature",
-        "color": "#fd7e14",
-        "icon": null,
-        "telegrams_count": 39
-      },
-      {
-        "id": 15,
-        "name": "Education",
-        "color": "#0dcaf0",
-        "icon": null,
-        "telegrams_count": 30
-      }
-    ]
-  };
+  @override
+  void initState() {
+    super.initState();
+    _categoryCubit = context.read<CategoryCubit>();
+    _initializeOnce();
+  }
+
+  void _initializeOnce() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _categoryCubit.initialize();
+    });
+  }
+
+  Future<void> _onRefresh() async {
+    print('🔄 CategoriesScreen: Refreshing with overlay...');
+    try {
+      await _categoryCubit.refresh();
+    } catch (e) {
+      // الخطأ تم التعامل معه في الكيوبت
+      print('⚠️ Refresh failed: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   // دالة لتحويل hex color إلى Color
   Color _getColorFromHex(String hexColor) {
     hexColor = hexColor.replaceAll("#", "");
     if (hexColor.length == 6) {
-      hexColor = "FF" + hexColor;
+      hexColor = "FF$hexColor";
     }
     return Color(int.parse(hexColor, radix: 16));
   }
@@ -265,7 +77,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       'ألعاب': Icons.videogame_asset,
       'أدب': Icons.book,
       'تعليم': Icons.school,
-      // الإنجليزية
       'Politics': Icons.account_balance,
       'Sports': Icons.sports_soccer,
       'Arts': Icons.palette,
@@ -287,7 +98,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   // دالة للحصول على الوصف بناءً على اسم الفئة
-  String _getDescriptionForCategory(String categoryName) {
+  String _getDescriptionForCategory(String categoryName, bool isArabic) {
     final descriptionsArabic = {
       'سياسة': 'الأخبار السياسية والتحليلات',
       'رياضة': 'أخبار الرياضة والمباريات',
@@ -324,36 +135,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       'Education': 'Education news and courses',
     };
     
-    final languageProvider = context.read<LanguageProvider>();
-    if (languageProvider.isArabic) {
-      return descriptionsArabic[categoryName] ?? 'مواضيع متنوعة';
-    } else {
-      return descriptionsEnglish[categoryName] ?? 'Various topics';
-    }
-  }
-
-  List<Category> _getCategoriesFromApi() {
-    final languageProvider = context.read<LanguageProvider>();
-    final apiData = languageProvider.isArabic ? apiDataArabic : apiDataEnglish;
-    final List<dynamic> categoriesData = apiData['data'];
-    
-    return categoriesData.map((item) {
-      return Category(
-        id: item['id'],
-        name: item['name'],
-        color: _getColorFromHex(item['color']),
-        icon: _getIconForCategory(item['name']),
-        count: item['telegrams_count'],
-        description: _getDescriptionForCategory(item['name']),
-      );
-    }).toList();
+    return isArabic 
+        ? descriptionsArabic[categoryName] ?? 'مواضيع متنوعة'
+        : descriptionsEnglish[categoryName] ?? 'Various topics';
   }
 
   // AppBar
-  AppBar _buildAppBar() {
-    final languageProvider = context.watch<LanguageProvider>();
-    final isArabic = languageProvider.isArabic;
-    
+  AppBar _buildAppBar(BuildContext context, bool isArabic) {
     return AppBar(
       leadingWidth: 150.w,
       backgroundColor: Colors.white,
@@ -373,238 +161,168 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ],
       ),
       actions: [
-        Icon(
-          Icons.bookmark,
-          color: AppColors.warning,
-          size: 40.sp,
-        ),
-        SizedBox(width: 8.w),
         IconButton(
-          icon: Icon(Icons.search, size: 25.sp),
-          onPressed: () {},
+          icon: Icon(Icons.refresh, color: AppColors.primary),
+          onPressed: () {
+            _refreshIndicatorKey.currentState?.show();
+          },
         ),
       ],
     );
   }
 
-  Widget _buildCategoryCard(Category category) {
-    final languageProvider = context.watch<LanguageProvider>();
-    final isArabic = languageProvider.isArabic;
+  // Category Card
+  Widget _buildCategoryCard(CategoryModel category, bool isArabic) {
+    final color = _getColorFromHex(category.color);
     
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
       elevation: 2,
-      child: InkWell(
-        onTap: () {
-          _showCategoryDetails(context, category);
-        },
-        borderRadius: BorderRadius.circular(12.r),
-        child: Container(
-          constraints: BoxConstraints(minHeight: 180.h),
-          child: Padding(
-            padding: EdgeInsets.all(12.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(6.w),
-                      decoration: BoxDecoration(
-                        color: category.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      child: Icon(
-                        category.icon,
-                        color: category.color,
-                        size: 20.sp,
-                      ),
+      child: Container(
+        constraints: BoxConstraints(minHeight: 180.h),
+        child: Padding(
+          padding: EdgeInsets.all(12.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(6.w),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8.r),
                     ),
-                    Spacer(),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6.w,
-                        vertical: 2.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: category.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6.r),
-                      ),
-                      child: Text(
-                        '${category.count}',
-                        style: TextStyle(
-                          color: category.color,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10.sp,
-                        ),
-                      ),
+                    child: Icon(
+                      _getIconForCategory(category.name),
+                      color: color,
+                      size: 20.sp,
                     ),
-                  ],
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  category.name,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.secondary,
                   ),
-                ),
-                SizedBox(height: 2.h),
-                Expanded(
-                  child: Text(
-                    category.description,
-                    style: TextStyle(
-                      color: AppColors.darkGray,
-                      fontSize: 11.sp,
+                  Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 6.w,
+                      vertical: 2.h,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Center(
-                  child: SizedBox(
-                    width: 80.w,
-                    height: 28.h,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (widget.onCategorySelected != null) {
-                          widget.onCategorySelected!(category.name);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: category.color,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15.r),
-                        ),
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Text(
-                        isArabic ? 'تصفح' : 'Browse',
-                        style: TextStyle(fontSize: 11.sp),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6.r),
+                    ),
+                    child: Text(
+                      '${category.telegramsCount}',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10.sp,
                       ),
                     ),
                   ),
+                ],
+              ),
+              SizedBox(height: 20.h),
+              Text(
+                category.name,
+                style: TextStyle(
+                  fontSize: 21.sp,
+                  fontWeight: FontWeight.bold,
+                  color: color,
                 ),
-              ],
-            ),
+              ),
+              SizedBox(height: 3.h),
+              Text(
+                _getDescriptionForCategory(category.name, isArabic),
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: Color(0xFF8E8E93),
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: 8.h),
+              Center(
+                child: SizedBox(
+                  width: 80.w,
+                  height: 28.h,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (widget.onCategorySelected != null) {
+                        widget.onCategorySelected!(category.id.toString());
+                        print('✅ Category selected: ${category.name} (ID: ${category.id})');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.r),
+                      ),
+                      padding: EdgeInsets.zero,
+                    ),
+                    child: Text(
+                      isArabic ? 'تصفح' : 'Browse',
+                      style: TextStyle(fontSize: 11.sp),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void _showCategoryDetails(BuildContext context, Category category) {
-    final languageProvider = context.read<LanguageProvider>();
+  @override
+  Widget build(BuildContext context) {
+    final languageProvider = context.watch<LanguageProvider>();
     final isArabic = languageProvider.isArabic;
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(20.w),
-          height: MediaQuery.of(context).size.height * 0.7,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
+    return BlocConsumer<CategoryCubit, CategoryState>(
+      listener: (context, state) {
+        if (state is CategoryError && state.cachedCategories == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Color(0xFFFF3B30),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        // ✅ بناء الـ UI مع Overlay Loading
+        return Scaffold(
+          appBar: isPortrait ? _buildAppBar(context, isArabic) : null,
+          body: SafeArea(
+            child: Stack(
               children: [
-                Center(
-                  child: Container(
-                    width: 40.w,
-                    height: 4.h,
-                    decoration: BoxDecoration(
-                      color: AppColors.lightGray,
-                      borderRadius: BorderRadius.circular(2.r),
-                    ),
+                // ✅ الجزء الرئيسي مع Refresh Indicator
+                RefreshIndicator(
+                  key: _refreshIndicatorKey,
+                  onRefresh: _onRefresh,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12.w),
+                    child: _buildMainContent(state, isArabic),
                   ),
                 ),
-                SizedBox(height: 20.h),
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(12.w),
-                      decoration: BoxDecoration(
-                        color: category.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16.r),
-                      ),
-                      child: Icon(
-                        category.icon,
-                        color: category.color,
-                        size: 32.sp,
+                
+                // ✅ Overlay Loading عند التحميل أو الـ Refresh
+                if (state is CategoryLoading || state is CategoryRefreshingWithOverlay)
+                  Positioned.fill(
+                    child: Container(
+                      color: Colors.black.withOpacity(0.5),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          strokeWidth: 3.0,
+                        ),
                       ),
                     ),
-                    SizedBox(width: 16.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            category.name,
-                            style: TextStyle(
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.secondary,
-                            ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            '${category.count} ${isArabic ? 'برقية' : 'telegrams'}',
-                            style: TextStyle(
-                              color: category.color,
-                              fontSize: 14.sp,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20.h),
-                Text(
-                  category.description,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: AppColors.darkGray,
-                    height: 1.5,
                   ),
-                ),
-                SizedBox(height: 30.h),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    if (widget.onCategorySelected != null) {
-                      widget.onCategorySelected!(category.name);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: category.color,
-                    minimumSize: Size(double.infinity, 50.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  ),
-                  child: Text(
-                    isArabic ? 'عرض برقيات ${category.name}' : 'View ${category.name} telegrams',
-                    style: TextStyle(fontSize: 16.sp),
-                  ),
-                ),
-                SizedBox(height: 10.h),
-                Center(
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      isArabic ? 'إغلاق' : 'Close',
-                      style: TextStyle(fontSize: 14.sp)
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -613,106 +331,169 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  int _calculateCrossAxisCount(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    if (screenWidth < 400) {
-      return 1;
-    } else if (screenWidth < 600) {
-      return 2;
-    } else if (screenWidth < 900) {
-      return 3;
-    } else {
-      return 4;
-    }
+  // Main Content Widget
+  Widget _buildMainContent(CategoryState state, bool isArabic) {
+    return Column(
+      children: [
+        Expanded(
+          child: _buildContent(state, isArabic),
+        ),
+      ],
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-    final languageProvider = context.watch<LanguageProvider>();
-    final categories = _getCategoriesFromApi();
+  Widget _buildContent(CategoryState state, bool isArabic) {
+    // ✅ استخدام دالة الكيوبت للحصول على البيانات المعروضة
+    final categoriesToShow = _categoryCubit.getDisplayCategories(state);
     
-    return Scaffold(
-      appBar: isPortrait ? _buildAppBar() : null,
-      body: SafeArea(
-        child: Column(
-          children: [
-            SizedBox(height: 12.h),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final crossAxisCount = _calculateCrossAxisCount(context);
-                  
-                  return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w),
-                    child: GridView.builder(
-                      physics: BouncingScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        crossAxisSpacing: 12.w,
-                        mainAxisSpacing: 12.h,
-                        childAspectRatio: _getAspectRatio(crossAxisCount),
-                      ),
-                      itemCount: categories.length,
-                      itemBuilder: (context, index) {
-                        return _buildCategoryCard(categories[index]);
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+    // ✅ إذا كان هناك بيانات للعرض
+    if (categoriesToShow.isNotEmpty) {
+      return GridView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12.w,
+          mainAxisSpacing: 12.h,
+          childAspectRatio: 0.75,
         ),
+        itemCount: categoriesToShow.length,
+        itemBuilder: (context, index) {
+          return _buildCategoryCard(categoriesToShow[index], isArabic);
+        },
+      );
+    }
+    
+    // ✅ إذا لم تكن هناك بيانات على الإطلاق (التحميل الأولي)
+    if (state is CategoryInitial || state is CategoryLoading) {
+      return _buildLoadingWidget(isArabic);
+    }
+    
+    // ✅ حالة الخطأ بدون بيانات مخزنة
+    if (state is CategoryError && !_categoryCubit.hasCachedData(state)) {
+      return _buildErrorWidget(state.message, null, isArabic);
+    }
+    
+    // ✅ حالة فارغة (نادراً ما تحدث)
+    return _buildEmptyWidget(isArabic);
+  }
+
+  // ✅ Loading Widget للتحميل الأولي
+  Widget _buildLoadingWidget(bool isArabic) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: AppColors.primary),
+          SizedBox(height: 16.h),
+          Text(
+            isArabic ? 'جاري تحميل التصنيفات...' : 'Loading categories...',
+            style: TextStyle(
+              fontSize: 16.sp,
+              color: Color(0xFF8E8E93),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  double _getAspectRatio(int crossAxisCount) {
-    switch (crossAxisCount) {
-      case 1:
-        return 1.3;
-      case 2:
-        return 0.75;
-      case 3:
-        return 0.7;
-      case 4:
-        return 0.65;
-      default:
-        return 0.7;
-    }
+  // Error Widget
+  Widget _buildErrorWidget(String message, List<CategoryModel>? cachedCategories, bool isArabic) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFFF3B30),
+                  size: 50.sp,
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: Color(0xFF8E8E93),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 24.h),
+                if (cachedCategories != null && cachedCategories.isNotEmpty)
+                  Text(
+                    isArabic ? 'يتم عرض البيانات المخزنة' : 'Showing cached data',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: Color(0xFF34C759),
+                    ),
+                  ),
+                SizedBox(height: 16.h),
+                ElevatedButton(
+                  onPressed: () => _categoryCubit.initialize(force: true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF007AFF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                  ),
+                  child: Text(
+                    isArabic ? 'إعادة المحاولة' : 'Retry',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
-}
 
-class Category {
-  final int id;
-  final String name;
-  final Color color;
-  final IconData icon;
-  final String description;
-  final int count;
-  bool isFollowing;
-
-  Category({
-    required this.id,
-    required this.name,
-    required this.color,
-    required this.icon,
-    required this.count,
-    required this.description,
-    this.isFollowing = false,
-  });
-
-  Category copyWith({bool? isFollowing, int? count}) {
-    return Category(
-      id: id,
-      name: name,
-      color: color,
-      icon: icon,
-      count: count ?? this.count,
-      description: description,
-      isFollowing: isFollowing ?? this.isFollowing,
+  // Empty Widget
+  Widget _buildEmptyWidget(bool isArabic) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.category_outlined,
+                  color: Color(0xFF8E8E93),
+                  size: 50.sp,
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  isArabic ? 'لا توجد تصنيفات متاحة' : 'No categories available',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: Color(0xFF8E8E93),
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                ElevatedButton(
+                  onPressed: () => _categoryCubit.initialize(force: true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF007AFF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                  ),
+                  child: Text(
+                    isArabic ? 'إعادة التحميل' : 'Reload',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

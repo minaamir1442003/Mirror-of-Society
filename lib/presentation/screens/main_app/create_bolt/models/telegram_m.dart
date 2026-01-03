@@ -42,6 +42,23 @@ class Telegram {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
+      'content': content,
+      'category_id': categoryId,
+      'is_ad': isAd,
+      'created_at': createdAt?.toIso8601String(),
+      'likes_count': likesCount,
+      'comments_count': commentsCount,
+      'reposts_count': repostsCount,
+      'author': author,
+      'category': category,
+    };
+  }
+
+  // ✅ إضافة دالة للتحويل إلى Map بسيط للتحديث
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'id': id,
       'content': content,
       'category_id': categoryId,
       'is_ad': isAd,

@@ -9,9 +9,12 @@ import 'package:app_1/presentation/widgets/bolts/bolt_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  final String? initialCategoryId;
+
+  const HomeScreen({Key? key, this.initialCategoryId}) : super(key: key);
 
   @override
   HomeScreenState createState() => HomeScreenState();
@@ -21,12 +24,17 @@ class HomeScreenState extends State<HomeScreen> {
   int _selectedCategoryIndex = 0;
   final ScrollController _scrollController = ScrollController();
   final _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
-  bool _initialized = false;
+  bool _shouldAutoSelectCategory = false;
 
   @override
   void initState() {
     super.initState();
     _setupScrollController();
+
+    if (widget.initialCategoryId != null) {
+      _shouldAutoSelectCategory = true;
+    }
+
     _initializeOnce();
   }
 
@@ -46,15 +54,39 @@ class HomeScreenState extends State<HomeScreen> {
   void _initializeOnce() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final homeCubit = context.read<HomeCubit>();
+      final languageProvider = context.read<LanguageProvider>();
+      final isArabic = languageProvider.getCurrentLanguageName() == 'العربية';
 
-      // ✅ التحقق إذا تم التهيئة مسبقاً
-      if (homeCubit.isInitialized) {
-        print('✅ HomeScreen: Cubit already initialized');
-        return;
+      // ✅ تهيئة الكيوبت مع اللغة الحالية
+      await homeCubit.initialize(isArabic: isArabic);
+
+      // ✅ إذا كان هناك تصنيف مبدئي يجب اختياره
+      if (_shouldAutoSelectCategory && widget.initialCategoryId != null) {
+        _selectCategoryFromId(widget.initialCategoryId!);
+      }
+    });
+  }
+
+  void _selectCategoryFromId(String categoryId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final homeCubit = context.read<HomeCubit>();
+      final categories = homeCubit.categories;
+
+      final categoryIndex = categories.indexWhere(
+        (cat) => cat.id == categoryId,
+      );
+
+      if (categoryIndex != -1) {
+        setState(() {
+          _selectedCategoryIndex = categoryIndex + 1;
+        });
+
+        homeCubit.switchCategory(categoryId);
+      } else {
+        print('⚠️ HomeScreen: Category $categoryId not found');
       }
 
-      print('🔄 HomeScreen: Initializing cubit...');
-      await homeCubit.initialize();
+      _shouldAutoSelectCategory = false;
     });
   }
 
@@ -65,18 +97,20 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _onRefresh() async {
-    // ✅ إعادة تحميل البيانات فقط، بدون إعادة التهيئة
-    await context.read<HomeCubit>().refresh();
-  }
+Future<void> _onRefresh() async {
+  final homeCubit = context.read<HomeCubit>();
+  
+  // ✅ استخدام refresh العادي مع overlay في كل الحالات
+  await homeCubit.refresh();
+}
 
   void resetScreen() {
-    final homeCubit = context.read<HomeCubit>();
-    homeCubit.resetInitialization();
-    homeCubit.clearCacheAndData();
-  }
+  final homeCubit = context.read<HomeCubit>();
+  homeCubit.resetInitialization();
+  // استخدام clearCacheAndRefresh بدل clearCacheAndData
+  homeCubit.clearCacheAndRefresh();
+}
 
-  // ✅ بناء AppBar
   AppBar _buildAppBar() {
     return AppBar(
       leadingWidth: 150,
@@ -84,14 +118,6 @@ class HomeScreenState extends State<HomeScreen> {
       elevation: 0,
       leading: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Image.asset(
-              "assets/image/photo_2025-12-06_01-52-45-removebg-preview.png",
-              width: 50,
-              height: 50,
-            ),
-          ),
           SizedBox(width: 8),
           Icon(Icons.bookmark, color: AppTheme.rankColors[4], size: 50),
         ],
@@ -102,13 +128,12 @@ class HomeScreenState extends State<HomeScreen> {
           if (cubit.currentCategoryId != null) {
             final category = cubit.categories.firstWhere(
               (c) => c.id == cubit.currentCategoryId,
-              orElse:
-                  () => Category(
-                    id: '',
-                    name: 'تصنيف',
-                    color: '#000000',
-                    telegramsCount: 0,
-                  ),
+              orElse: () => Category(
+                id: '',
+                name: 'تصنيف',
+                color: '#000000',
+                telegramsCount: 0,
+              ),
             );
             return Text(
               category.name,
@@ -119,7 +144,7 @@ class HomeScreenState extends State<HomeScreen> {
             );
           }
           return Text(
-            'الصفحة الرئيسية',
+            '',
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
           );
         },
@@ -170,13 +195,14 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ بناء قائمة التصنيفات
   Widget _buildCategories(List<Category> categories) {
+    final isArabic = context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية';
+
     // إضافة "الكل" في البداية
     final allCategories = [
       Category(
         id: 'all',
-        name: _getTranslatedCategoryName('All'),
+        name: isArabic ? 'الكل' : 'All',
         color: '#000000',
         icon: null,
         telegramsCount: 0,
@@ -185,7 +211,9 @@ class HomeScreenState extends State<HomeScreen> {
     ];
 
     return Container(
-      padding: EdgeInsets.only(left: 82.w),
+      padding: isArabic 
+          ? EdgeInsets.only(left: 80.w)
+          : EdgeInsets.only(right: 80.w),
       height: 50,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
@@ -212,8 +240,7 @@ class HomeScreenState extends State<HomeScreen> {
               margin: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color:
-                    isSelected ? AppColors.primary : AppColors.extraLightGray,
+                color: isSelected ? AppColors.primary : AppColors.extraLightGray,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -230,125 +257,182 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _getTranslatedCategoryName(String englishName) {
-    final langProvider = context.read<LanguageProvider>();
-    final isArabic = langProvider.getCurrentLanguageName() == 'العربية';
+Widget _buildBody(BuildContext context, HomeState state) {
+  final homeCubit = context.read<HomeCubit>();
+  final isArabic = context.watch<LanguageProvider>().getCurrentLanguageName() == 'العربية';
 
-    if (!isArabic) return englishName;
+  // ✅ تحديد البيانات للعرض
+  List<FeedItem> feedItems = [];
+  List<OnThisDayEvent> onThisDayEvents = [];
+  List<Category> categories = homeCubit.categories;
+  
+  bool showOverlay = false;
+  bool showError = false;
+  String? errorMessage;
+  bool showEmptyState = false;
 
-    final translations = {
-      'Arts': 'فنون',
-      'Sports': 'رياضة',
-      'Technology': 'تكنولوجيا',
-      'Movies': 'أفلام',
-      'Fashion': 'موضة',
-      'Business': 'أعمال',
-      'Health': 'صحة',
-      'Travel': 'سفر',
-      'Science': 'علوم',
-      'Gaming': 'ألعاب',
-      'Literature': 'أدب',
-      'Politics': 'سياسة',
-      'Food': 'طعام',
-      'Music': 'موسيقى',
-      'Education': 'تعليم',
-      'All': 'الكل',
-    };
-
-    return translations[englishName] ?? englishName;
+  if (state is HomeLoaded) {
+    feedItems = state.feedItems;
+    onThisDayEvents = state.onThisDayEvents;
+  } 
+  else if (state is HomeRefreshingWithOverlay) {
+    feedItems = state.feedItems;
+    onThisDayEvents = state.onThisDayEvents;
+    showOverlay = true;
+  }
+  else if (state is HomeLoading) {
+    // في حالة HomeLoading، نستخدم آخر البيانات الصالحة إذا كانت موجودة
+    feedItems = homeCubit.lastValidFeedItems;
+    onThisDayEvents = homeCubit.lastValidEvents;
+    showOverlay = true;
+  }
+  else if (state is HomeError) {
+    feedItems = homeCubit.lastValidFeedItems;
+    onThisDayEvents = homeCubit.lastValidEvents;
+    showError = true;
+    errorMessage = state.error;
+    
+    // إذا مفيش بيانات قديمة، نعرض Empty State
+    if (feedItems.isEmpty) {
+      showEmptyState = true;
+    }
+  }
+  else if (state is HomeLoadingMore) {
+    feedItems = state.feedItems;
+    onThisDayEvents = homeCubit.onThisDayEvents;
+  }
+  else if (state is HomeInitial) {
+    // في حالة HomeInitial، نستخدم آخر البيانات الصالحة
+    feedItems = homeCubit.lastValidFeedItems;
+    onThisDayEvents = homeCubit.lastValidEvents;
+    showOverlay = true;
   }
 
-  // ✅ بناء الجسم الرئيسي - المعدل
-  Widget _buildBody(BuildContext context, HomeState state) {
-    final homeCubit = context.read<HomeCubit>();
+  // إذا مفيش بيانات خالص ولا في حالة overlay
+  if (feedItems.isEmpty && !showOverlay && !showError) {
+    showEmptyState = true;
+  }
 
-    if (state is HomeInitial ||
-        (state is HomeLoading && homeCubit.feedItems.isEmpty)) {
-      return _LoadingWidget(); // ✅ استخدام الـ Widget الداخلي
-    }
-
-    if (state is HomeError && homeCubit.feedItems.isEmpty) {
-      return _ErrorWidget(
-        // ✅ استخدام الـ Widget الداخلي
-        message: state.error,
-        onRetry: () => homeCubit.refresh(),
-      );
-    }
-
-    List<FeedItem> feedItems = homeCubit.feedItems;
-    List<OnThisDayEvent> onThisDayEvents = homeCubit.onThisDayEvents;
-    List<Category> categories = homeCubit.categories;
-
-    if (feedItems.isEmpty) {
-      return _EmptyStateWidget(
-        // ✅ استخدام الـ Widget الداخلي
-        message: 'لا توجد برقيات لعرضها',
-        onRetry: () => homeCubit.refresh(),
-      );
-    }
-
-    return RefreshIndicator(
-      key: _refreshIndicatorKey,
-      onRefresh: _onRefresh,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              "assets/image/Untitled-1.jpg",
-              fit: BoxFit.cover,
+  return Stack(
+    children: [
+      // ✅ الجزء الرئيسي (البيانات + refresh indicator)
+      RefreshIndicator(
+        key: _refreshIndicatorKey,
+        onRefresh: _onRefresh,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: isArabic
+                  ? Image.asset(
+                      "assets/image/Untitled-1.jpg",
+                      fit: BoxFit.cover,
+                    )
+                  : Image.asset(
+                      "assets/image/main image right.jpg",
+                      fit: BoxFit.cover,
+                    ),
+            ),
+            Column(
+              children: [
+                SizedBox(height: 10),
+                _buildCategories(categories),
+                SizedBox(height: 30),
+                Expanded(
+                  child: _buildContent(
+                    feedItems: feedItems,
+                    onThisDayEvents: onThisDayEvents,
+                    homeCubit: homeCubit,
+                    showEmptyState: showEmptyState,
+                    showError: showError,
+                    errorMessage: errorMessage,
+                    context: context,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      
+      // ✅ Overlay للتحميل إذا كان في حالة تحميل
+      if (showOverlay)
+        Positioned.fill(
+          child: Container(
+            color: Colors.black.withOpacity(0.5), // Overlay رمادي شفاف
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 3.0,
+              ),
             ),
           ),
-          Column(
-            children: [
-              SizedBox(height: 10),
-              _buildCategories(categories),
-              SizedBox(height: 30),
-              Expanded(
-                child: ListView(
-                  controller: _scrollController,
-                  physics: AlwaysScrollableScrollPhysics(),
-                  children: [
-                    ..._buildBoltsWithTodayFeature(
-                      feedItems,
-                      onThisDayEvents,
-                      context,
-                    ),
+        ),
+    ],
+  );
+}
 
-                    // مؤشر التحميل للـ Pagination
-                    if (homeCubit.isLoadingMore)
-                      Container(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-
-                    // رسالة نهاية المحتوى
-                    if (!homeCubit.hasMore && homeCubit.feedItems.isNotEmpty)
-                      Container(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(
-                          child: Text(
-                            'تم الوصول إلى نهاية المحتوى',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // إعلان الاشتراك
-                    _buildAdCard(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+Widget _buildContent({
+  required List<FeedItem> feedItems,
+  required List<OnThisDayEvent> onThisDayEvents,
+  required HomeCubit homeCubit,
+  required bool showEmptyState,
+  required bool showError,
+  String? errorMessage,
+  required BuildContext context,
+}) {
+  if (showEmptyState) {
+    return _EmptyStateWidget(
+      message: 'لا توجد برقيات لعرضها',
+      onRetry: () => homeCubit.refresh(),
     );
   }
 
-  // ✅ تحويل FeedItem إلى BoltModel
+  if (showError && feedItems.isEmpty) {
+    return _ErrorWidget(
+      message: errorMessage ?? 'حدث خطأ',
+      onRetry: () => homeCubit.refresh(),
+    );
+  }
+
+  return ListView(
+    controller: _scrollController,
+    physics: AlwaysScrollableScrollPhysics(),
+    children: [
+      ..._buildBoltsWithTodayFeature(
+        feedItems,
+        onThisDayEvents,
+        context,
+      ),
+
+      if (homeCubit.isLoadingMore)
+        Container(
+          padding: EdgeInsets.all(20),
+          child: Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+        ),
+
+      if (!homeCubit.hasMore && homeCubit.feedItems.isNotEmpty)
+        Container(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(
+            child: Text(
+              'تم الوصول إلى نهاية المحتوى',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+
+      _buildAdCard(),
+    ],
+  );
+}
+
   BoltModel _feedItemToBoltModel(FeedItem feedItem, BuildContext context) {
     final homeCubit = context.read<HomeCubit>();
 
@@ -399,35 +483,57 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   IconData _getCategoryIcon(String categoryName) {
-    switch (categoryName.toLowerCase()) {
-      case 'arts':
+    switch (categoryName) {
+      case 'فن':
+      case 'Arts':
         return Icons.palette;
-      case 'sports':
+      case 'رياضة':
+      case 'Sports':
         return Icons.sports_soccer;
-      case 'technology':
+      case 'تكنولوجيا':
+      case 'Technology':
         return Icons.computer;
-      case 'movies':
+      case 'أفلام':
+      case 'Movies':
         return Icons.movie;
-      case 'fashion':
+      case 'موضة':
+      case 'Fashion':
         return Icons.shopping_bag;
-      case 'business':
+      case 'أعمال':
+      case 'Business':
         return Icons.business;
-      case 'health':
+      case 'صحة':
+      case 'Health':
         return Icons.health_and_safety;
-      case 'travel':
+      case 'سفر':
+      case 'Travel':
         return Icons.flight;
-      case 'science':
+      case 'علوم':
+      case 'Science':
         return Icons.science;
-      case 'gaming':
+      case 'ألعاب':
+      case 'Gaming':
         return Icons.games;
-      case 'literature':
+      case 'أدب':
+      case 'Literature':
         return Icons.menu_book;
+      case 'سياسة':
+      case 'Politics':
+        return Icons.flag;
+      case 'طعام':
+      case 'Food':
+        return Icons.restaurant;
+      case 'موسيقى':
+      case 'Music':
+        return Icons.music_note;
+      case 'تعليم':
+      case 'Education':
+        return Icons.school;
       default:
         return Icons.category;
     }
   }
 
-  // ✅ بناء البرقيات مع ميزة "في مثل هذا اليوم"
   List<Widget> _buildBoltsWithTodayFeature(
     List<FeedItem> feedItems,
     List<OnThisDayEvent> events,
@@ -438,13 +544,11 @@ class HomeScreenState extends State<HomeScreen> {
     for (int i = 0; i < feedItems.length; i++) {
       widgets.add(BoltCard(bolt: _feedItemToBoltModel(feedItems[i], context)));
 
-      // إضافة ميزة "في مثل هذا اليوم" بعد كل 3 برقيات
       if ((i + 1) % 3 == 0 && i != feedItems.length - 1) {
         widgets.add(_buildTodayFeature(events));
       }
     }
 
-    // إذا كان عدد البرقيات أقل من 3 وأوجدت أحداث، نضيف الميزة في النهاية
     if (feedItems.length < 3 && events.isNotEmpty) {
       widgets.add(_buildTodayFeature(events));
     }
@@ -452,7 +556,6 @@ class HomeScreenState extends State<HomeScreen> {
     return widgets;
   }
 
-  // ✅ بناء ميزة "في مثل هذا اليوم"
   Widget _buildTodayFeature(List<OnThisDayEvent> events) {
     if (events.isEmpty) {
       return _buildDefaultTodayFeature();
@@ -478,16 +581,15 @@ class HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.black, width: 2),
-                  image:
-                      event.imageUrl != null
-                          ? DecorationImage(
-                            image: NetworkImage(event.imageUrl!),
-                            fit: BoxFit.cover,
-                          )
-                          : DecorationImage(
-                            image: AssetImage("assets/image/download (1).jpg"),
-                            fit: BoxFit.cover,
-                          ),
+                  image: event.imageUrl != null
+                      ? DecorationImage(
+                          image: NetworkImage(event.imageUrl!),
+                          fit: BoxFit.cover,
+                        )
+                      : DecorationImage(
+                          image: AssetImage("assets/image/download (1).jpg"),
+                          fit: BoxFit.cover,
+                        ),
                 ),
               ),
               SizedBox(width: 16),
@@ -618,7 +720,7 @@ class HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-      ),
+      )
     );
   }
 
@@ -709,77 +811,118 @@ class HomeScreenState extends State<HomeScreen> {
   void _showSubscriptionDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('اشترك الآن!'),
-            content: Text('احصل على خصم 30% على أول اشتراك سنوي.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('لاحقاً'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('سيتم توجيهك لصفحة الاشتراك')),
-                  );
-                },
-                child: Text('اشترك الآن'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text('اشترك الآن!'),
+        content: Text('احصل على خصم 30% على أول اشتراك سنوي.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('لاحقاً'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('سيتم توجيهك لصفحة الاشتراك')),
+              );
+            },
+            child: Text('اشترك الآن'),
+          ),
+        ],
+      ),
     );
   }
 
   void _showSearchDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text('بحث'),
-            content: TextField(
-              decoration: InputDecoration(
-                hintText: 'ابحث عن برقيات أو مستخدمين...',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('إلغاء'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('ميزة البحث قيد التطوير')),
-                  );
-                },
-                child: Text('بحث'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text('بحث'),
+        content: TextField(
+          decoration: InputDecoration(
+            hintText: 'ابحث عن برقيات أو مستخدمين...',
+            prefixIcon: Icon(Icons.search),
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('ميزة البحث قيد التطوير')),
+              );
+            },
+            child: Text('بحث'),
+          ),
+        ],
+      ),
     );
+  }
+
+  void _updateSelectedCategoryIndex(HomeState state) {
+    final homeCubit = context.read<HomeCubit>();
+    final currentCategoryId = homeCubit.currentCategoryId;
+    final categories = homeCubit.categories;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      int newIndex = 0;
+
+      if (currentCategoryId != null) {
+        final categoryIndex = categories.indexWhere(
+          (cat) => cat.id == currentCategoryId,
+        );
+        if (categoryIndex != -1) {
+          newIndex = categoryIndex + 1;
+        }
+      }
+
+      if (_selectedCategoryIndex != newIndex) {
+        setState(() {
+          _selectedCategoryIndex = newIndex;
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
-      body: BlocConsumer<HomeCubit, HomeState>(
-        listener: (context, state) {
-          if (state is HomeError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.error), backgroundColor: Colors.red),
-            );
-          }
-        },
-        builder: (context, state) {
-          return _buildBody(context, state);
-        },
-      ),
+    // ✅ استخدم Consumer مباشرة لأن LanguageProvider عندك يورث من ChangeNotifier
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, child) {
+        // ✅ عندما تتغير اللغة، قم بتحديث التصنيفات
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final homeCubit = context.read<HomeCubit>();
+          final isArabic = languageProvider.getCurrentLanguageName() == 'العربية';
+          homeCubit.updateCategoriesLanguage(isArabic);
+        });
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: _buildAppBar(),
+          body: BlocConsumer<HomeCubit, HomeState>(
+            listener: (context, state) {
+              if (state is HomeError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(state.error), backgroundColor: Colors.red),
+                );
+              }
+
+              if (state is HomeLoaded || state is HomeLoading) {
+                _updateSelectedCategoryIndex(state);
+              }
+            },
+            builder: (context, state) {
+              return _buildBody(context, state);
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -790,9 +933,6 @@ class HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ✅ ========== Widgets الداخلية ==========
-
-// ✅ Loading Widget
 class _LoadingWidget extends StatelessWidget {
   const _LoadingWidget();
 
@@ -809,12 +949,11 @@ class _LoadingWidget extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
-      ),
+      )
     );
   }
 }
 
-// ✅ Error Widget
 class _ErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -837,12 +976,11 @@ class _ErrorWidget extends StatelessWidget {
           SizedBox(height: 24),
           ElevatedButton(onPressed: onRetry, child: Text('إعادة المحاولة')),
         ],
-      ),
+      )
     );
   }
 }
 
-// ✅ Empty State Widget
 class _EmptyStateWidget extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
@@ -860,16 +998,17 @@ class _EmptyStateWidget extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: Colors.grey[600]),
           ),
           if (onRetry != null) ...[
             SizedBox(height: 24),
             ElevatedButton(onPressed: onRetry, child: Text('إعادة التحميل')),
           ],
         ],
-      ),
+      )
     );
   }
 }

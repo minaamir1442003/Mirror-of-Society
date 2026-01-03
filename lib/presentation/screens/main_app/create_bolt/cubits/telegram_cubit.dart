@@ -1,8 +1,7 @@
-
-
 import 'package:app_1/presentation/screens/main_app/create_bolt/cubits/telegram_state.dart';
 import 'package:app_1/presentation/screens/main_app/create_bolt/repositories/telegram_repository.dart';
 import 'package:app_1/presentation/screens/main_app/create_bolt/services/category_service.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class TelegramCubit extends Cubit<TelegramState> {
@@ -34,6 +33,7 @@ class TelegramCubit extends Cubit<TelegramState> {
     required String content,
     required int categoryId,
     bool isAd = false,
+    BuildContext? context,
   }) async {
     try {
       emit(TelegramCreating());
@@ -46,7 +46,7 @@ class TelegramCubit extends Cubit<TelegramState> {
       
       emit(TelegramCreated(telegram: telegram));
       
-      // إعادة تعيين الحالة بعد 2 ثانية للعودة للشاشة الرئيسية
+      // ✅ إعادة تعيين الحالة بعد 2 ثانية
       await Future.delayed(Duration(seconds: 2));
       emit(TelegramInitial());
       
@@ -55,55 +55,50 @@ class TelegramCubit extends Cubit<TelegramState> {
     }
   }
 
-  // تحديث برقية
-  Future<void> updateTelegram({
-    required int telegramId,
-    String? content,
-    int? categoryId,
-    bool? isAd,
-  }) async {
-    try {
-      emit(TelegramUpdating());
-      
-      final telegram = await _telegramRepository.updateTelegram(
-        telegramId: telegramId,
-        content: content,
-        categoryId: categoryId,
-        isAd: isAd,
-      );
-      
-      emit(TelegramUpdated(telegram: telegram));
-      
-      // إعادة تعيين الحالة
-      await Future.delayed(Duration(seconds: 2));
-      emit(TelegramInitial());
-      
-    } catch (e) {
-      emit(TelegramError(message: 'فشل في تحديث البرقية: $e'));
-    }
-  }
+  // ✅ دالة تحديث البرقية
 
-  // حذف برقية
-  Future<void> deleteTelegram(int telegramId) async {
+
+  // ✅ دالة الحذف المعدلة
+ Future<void> deleteTelegram(int telegramId) async {
     try {
       emit(TelegramDeleting());
       
-      final success = await _telegramRepository.deleteTelegram(telegramId);
+      print('🗑️ TelegramCubit: Deleting telegram $telegramId');
       
-      if (success) {
-        emit(TelegramDeleted(telegramId: telegramId));
-      } else {
-        emit(TelegramError(message: 'فشل في حذف البرقية'));
-      }
+      await _telegramRepository.deleteTelegram(telegramId);
       
-      // إعادة تعيين الحالة
-      await Future.delayed(Duration(seconds: 2));
+      emit(TelegramDeleted(telegramId: telegramId));
+      
+      // ✅ إعادة تعيين الحالة بعد وقت قصير
+      await Future.delayed(Duration(milliseconds: 300));
       emit(TelegramInitial());
       
     } catch (e) {
+      print('❌ Error in deleteTelegram: $e');
       emit(TelegramError(message: 'فشل في حذف البرقية: $e'));
     }
   }
+
+  // ✅ دالة حذف إعادة النشر
+    Future<void> deleteRepost(int telegramId) async {
+    try {
+      emit(TelegramDeleting());
+      
+      await _telegramRepository.deleteRepost(telegramId);
+      
+      emit(TelegramDeleted(telegramId: telegramId));
+      
+      // إعادة تعيين الحالة بعد وقت قصير
+      await Future.delayed(Duration(milliseconds: 300));
+      emit(TelegramInitial());
+      
+    } catch (e) {
+      emit(TelegramError(message: 'فشل في إزالة إعادة النشر: $e'));
+    }
+  }
+
+
+  // ✅ دالة التبليغ
 
   // إعادة تعيين الحالة
   void resetState() {

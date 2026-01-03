@@ -32,16 +32,18 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
-    if (!_formKey.currentState!.validate()) return;
+void _handleLogin() {
+  if (!_formKey.currentState!.validate()) return;
 
-    FocusScope.of(context).unfocus();
+  FocusScope.of(context).unfocus();
 
-    context.read<LoginCubit>().login(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
-  }
+  // ✅ تمرير context إلى login
+  context.read<LoginCubit>().login(
+    _emailController.text.trim(),
+    _passwordController.text,
+    context: context, // ← إضافة هذا
+  );
+}
 
   void _showErrorSnackbar(String message) {
     CustomSnackbar.showError(

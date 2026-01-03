@@ -22,6 +22,52 @@ class StorageService {
       _isInitialized = false;
     }
   }
+   Future<void> setVerificationSkipped() async {
+    await ensureInitialized();
+    final now = DateTime.now();
+    final skipDate = now.toIso8601String();
+    
+    await _prefs.setString('verification_skipped_date', skipDate);
+    await _prefs.setBool('verification_skipped', true);
+    
+    print('✅ Verification skipped on: $skipDate');
+  }
+
+  Future<bool> shouldShowVerification() async {
+    await ensureInitialized();
+    
+    final isSkipped = _prefs.getBool('verification_skipped') ?? false;
+    
+    if (!isSkipped) {
+      return true; // لم يتم الضغط على تخطي من قبل
+    }
+    
+    final skipDateStr = _prefs.getString('verification_skipped_date');
+    if (skipDateStr == null) {
+      return true; // لا يوجد تاريخ، اعرض المربع
+    }
+    
+    try {
+      final skipDate = DateTime.parse(skipDateStr);
+      final now = DateTime.now();
+      final difference = now.difference(skipDate).inDays;
+      
+      print('📅 Days since skip: $difference days');
+      
+      // إذا مرت 30 يومًا أو أكثر، اعرض المربع مجددًا
+      if (difference >= 30) {
+        // مسح الحالة السابقة للبدء من جديد
+        await _prefs.remove('verification_skipped');
+        await _prefs.remove('verification_skipped_date');
+        return true;
+      }
+      
+      return false; // لا تعرض المربع
+    } catch (e) {
+      print('❌ Error parsing skip date: $e');
+      return true;
+    }
+  }
   
   // ✅ جعلها public بدل private
   Future<void> ensureInitialized() async {
@@ -115,21 +161,36 @@ class StorageService {
     // مسح بيانات المستخدم
     await deleteUser();
     
-    // مسح الكاش
-    await deleteSecureData('cached_home_feed');
-    await deleteSecureData('cached_events');
-    await deleteSecureData('cached_next_cursor');
-    await deleteSecureData('cached_has_more');
-    await deleteSecureData('cached_timestamp');
+    // ✅ مسح جميع مفاتيح HomeCubit
+    final homeCacheKeys = [
+      'cached_home_feed',
+      'cached_events',
+      'cached_next_cursor',
+      'cached_has_more',
+      'cached_timestamp',
+      'cached_feed_type',
+      'cached_category_id',
+      'cached_categories',
+    ];
     
-    // مسح أي بيانات أخرى مرتبطة بالمستخدم
-    await _prefs.remove('user_id');
-    await _prefs.remove('user_name');
-    await _prefs.remove('user_email');
-    await _prefs.remove('user_image');
-    await _prefs.remove('user_rank');
-    await _prefs.remove('fcm_token');
-    await _prefs.remove('notifications_enabled');
+    for (final key in homeCacheKeys) {
+      await deleteSecureData(key);
+    }
+    
+    // مسح بيانات المستخدم العامة
+    final userKeys = [
+      'user_id',
+      'user_name', 
+      'user_email',
+      'user_image',
+      'user_rank',
+      'fcm_token',
+      'notifications_enabled'
+    ];
+    
+    for (final key in userKeys) {
+      await _prefs.remove(key);
+    }
     
     print('✅ StorageService: All user data cleared');
   } catch (e) {

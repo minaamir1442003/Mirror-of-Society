@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app_1/presentation/screens/main_app/home/Models/categories_constants.dart';
 import 'package:app_1/presentation/screens/main_app/home/Models/home_feed_model.dart';
 import 'package:app_1/presentation/screens/main_app/home/Repository/home_repository.dart';
 import 'package:app_1/core/constants/shared%20pref.dart';
@@ -9,8 +10,8 @@ part 'home_state.dart';
 class HomeCubit extends Cubit<HomeState> {
   final HomeRepository _homeRepository;
   final StorageService _storageService;
-    bool _isInitialized = false; // ✅ إضافة متغير لتتبع التهيئة
-  bool _isInitializing = false; // ✅ لمنع التهيئة المزدوجة
+  bool _isInitialized = false;
+  bool _isInitializing = false;
   
   // ⭐ Pagination Variables
   String? _nextCursor;
@@ -23,9 +24,16 @@ class HomeCubit extends Cubit<HomeState> {
   List<OnThisDayEvent> _onThisDayEvents = [];
   
   // ⭐ Filter Variables
-  String? _currentCategoryId;  // null = كل التصنيفات
-  String _currentFeedType = 'home'; // 'home' أو 'category'
+  String? _currentCategoryId;
+  String _currentFeedType = 'home';
   List<Category> _categories = [];
+  
+  // ⭐ Overlay Refresh Variable
+  bool _isRefreshingWithOverlay = false;
+  
+  // ⭐ آخر بيانات متاحة (للعرض أثناء التحميل)
+  List<FeedItem> _lastValidFeedItems = [];
+  List<OnThisDayEvent> _lastValidEvents = [];
   
   // ⭐ Cache Keys
   static const String _cachedFeedKey = 'cached_home_feed';
@@ -35,7 +43,6 @@ class HomeCubit extends Cubit<HomeState> {
   static const String _cachedTimestampKey = 'cached_timestamp';
   static const String _cachedFeedTypeKey = 'cached_feed_type';
   static const String _cachedCategoryIdKey = 'cached_category_id';
-  static const String _cachedCategoriesKey = 'cached_categories';
   static const Duration _cacheDuration = Duration(minutes: 10);
 
   HomeCubit({
@@ -45,15 +52,13 @@ class HomeCubit extends Cubit<HomeState> {
         _storageService = storageService,
         super(HomeInitial(categories: []));
 
-  // ✅ دالة التهيئة
-  Future<void> initialize({bool force = false}) async {
-    // إذا تم التهيئة بالفعل ولا نريد إجبار إعادة التهيئة
+  // ✅ دالة التهيئة المعدلة بدون شاشة بيضاء
+  Future<void> initialize({bool force = false, bool isArabic = false}) async {
     if (_isInitialized && !force) {
       print('✅ HomeCubit: Already initialized, skipping...');
       return;
     }
     
-    // إذا كان هناك عملية تهيئة جارية
     if (_isInitializing) {
       print('⚠️ HomeCubit: Initialization already in progress');
       return;
@@ -64,17 +69,10 @@ class HomeCubit extends Cubit<HomeState> {
     try {
       print('🔄 HomeCubit: Starting initialization...');
       
-      // 1. إصدار حالة التحميل إذا كانت المرة الأولى
-      if (!_isInitialized || force) {
-        emit(HomeInitial(categories: []));
-      }
+      // 1. تحميل التصنيفات من الثوابت
+      _loadCategoriesFromConstants(isArabic);
       
-      // 2. تحميل التصنيفات إذا لم تكن محملة
-      if (_categories.isEmpty) {
-        await _loadCategories();
-      }
-      
-      // 3. محاولة تحميل البيانات المخزنة
+      // 2. إصدار حالة التحميل مع البيانات المخزنة
       final cachedData = await _loadFromCache();
       
       if (cachedData != null) {
@@ -86,44 +84,105 @@ class HomeCubit extends Cubit<HomeState> {
         _currentFeedType = cachedData['feedType'] ?? 'home';
         _currentCategoryId = cachedData['categoryId'];
         
-        // إصدار حالة المحملة مع البيانات المخزنة
-        if (_allFeedItems.isNotEmpty) {
+        // حفظ كآخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        _lastValidEvents = List.from(_onThisDayEvents);
+        
+        // إصدار حالة الـ Overlay Loading مع البيانات المخزنة
+        emit(HomeRefreshingWithOverlay(
+          feedItems: _allFeedItems,
+          onThisDayEvents: _onThisDayEvents,
+          hasMore: _hasMore,
+          categories: _categories,
+          currentCategoryId: _currentCategoryId,
+          feedType: _currentFeedType,
+        ));
+      } else {
+        // إذا مفيش بيانات مخزنة، نعرض حالة Loading بدون بيانات
+        emit(HomeLoading(
+          categories: _categories,
+          currentCategoryId: _currentCategoryId,
+          feedType: _currentFeedType,
+        ));
+      }
+      
+      // 3. جلب البيانات الجديدة مباشرة مع الحفاظ على البيانات القديمة
+      try {
+        HomeFeedResponse response;
+        
+        if (_currentFeedType == 'category' && _currentCategoryId != null) {
+          response = await _homeRepository.getCategoryFeed(
+            categoryId: _currentCategoryId!,
+            cursor: null,
+          );
+        } else {
+          response = await _homeRepository.getHomeFeed(cursor: null);
+        }
+        
+        // تحديث البيانات
+        _allFeedItems = response.data.feed;
+        _onThisDayEvents = response.data.onThisDayEvents;
+        _nextCursor = response.data.pagination.nextCursor;
+        _hasMore = response.data.pagination.hasMore;
+        _isFirstLoad = false;
+        
+        // حفظ كآخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        _lastValidEvents = List.from(_onThisDayEvents);
+        
+        // حفظ في التخزين المؤقت
+        await _saveToCache();
+        
+        // إصدار الحالة الجديدة
+        emit(HomeLoaded(
+          feedItems: _allFeedItems,
+          onThisDayEvents: _onThisDayEvents,
+          hasMore: _hasMore,
+          categories: _categories,
+          currentCategoryId: _currentCategoryId,
+          feedType: _currentFeedType,
+        ));
+        
+        print('✅ HomeCubit: Initialization completed successfully');
+        
+      } catch (e) {
+        print('❌ HomeCubit: Error loading fresh data: $e');
+        
+        // إذا فشل تحميل البيانات الجديدة، نظهر البيانات القديمة إذا كانت موجودة
+        if (_lastValidFeedItems.isNotEmpty) {
           emit(HomeLoaded(
-            feedItems: _allFeedItems,
-            onThisDayEvents: _onThisDayEvents,
+            feedItems: _lastValidFeedItems,
+            onThisDayEvents: _lastValidEvents,
             hasMore: _hasMore,
+            categories: _categories,
+            currentCategoryId: _currentCategoryId,
+            feedType: _currentFeedType,
+          ));
+        } else {
+          // إذا مفيش بيانات خالص، نظهر Empty State
+          emit(HomeError(
+            error: 'فشل تحميل البيانات',
+            feedItems: [],
+            onThisDayEvents: [],
+            hasMore: false,
             categories: _categories,
             currentCategoryId: _currentCategoryId,
             feedType: _currentFeedType,
           ));
         }
       }
-      
-      // 4. تحميل البيانات الجديدة فقط إذا لم يكن لدينا بيانات
-      if (_allFeedItems.isEmpty) {
-        print('📡 HomeCubit: Loading fresh data...');
-        await getFeed(forceRefresh: true);
-      } else {
-        print('✅ HomeCubit: Using existing data, no need to refresh');
-        // تحديث البيانات في الخلفية
-        _refreshDataInBackground();
-      }
 
-      
       _isInitialized = true;
-      print('✅ HomeCubit: Initialization completed successfully');
       
     } catch (e) {
       print('❌ HomeCubit: Initialization error: $e');
       
-      // حتى لو حدث خطأ، نعتبر أن التهيئة تمت
       _isInitialized = true;
       
-      if (_allFeedItems.isNotEmpty) {
-        // نعرض البيانات الموجودة حتى مع وجود خطأ
+      if (_lastValidFeedItems.isNotEmpty) {
         emit(HomeLoaded(
-          feedItems: _allFeedItems,
-          onThisDayEvents: _onThisDayEvents,
+          feedItems: _lastValidFeedItems,
+          onThisDayEvents: _lastValidEvents,
           hasMore: _hasMore,
           categories: _categories,
           currentCategoryId: _currentCategoryId,
@@ -134,6 +193,70 @@ class HomeCubit extends Cubit<HomeState> {
       _isInitializing = false;
     }
   }
+
+  // ✅ دالة تحميل التصنيفات من الثوابت
+  void _loadCategoriesFromConstants(bool isArabic) {
+    try {
+      final categoriesData = CategoriesConstants.getCategories(isArabic);
+      
+      _categories = categoriesData.map((item) => Category(
+        id: item['id'].toString(),
+        name: item['name'].toString(),
+        color: item['color'].toString(),
+        icon: item['icon'],
+        telegramsCount: item['telegrams_count'] ?? 0,
+      )).toList();
+      
+      print('✅ HomeCubit: Loaded ${_categories.length} categories from constants');
+    } catch (e) {
+      print('❌ HomeCubit: Error loading categories from constants: $e');
+      _categories = [];
+    }
+  }
+
+  // ✅ تحديث التصنيفات عند تغيير اللغة
+  void updateCategoriesLanguage(bool isArabic) {
+    print('🔄 HomeCubit: Updating categories language to ${isArabic ? 'Arabic' : 'English'}');
+    
+    // حفظ التصنيف الحالي
+    final currentCategoryId = _currentCategoryId;
+    
+    // تحميل التصنيفات باللغة الجديدة
+    _loadCategoriesFromConstants(isArabic);
+    
+    // تحديث حالة الـ UI مع الحفاظ على البيانات الحالية
+    if (state is HomeLoaded) {
+      final currentState = state as HomeLoaded;
+      emit(HomeLoaded(
+        feedItems: currentState.feedItems,
+        onThisDayEvents: currentState.onThisDayEvents,
+        hasMore: currentState.hasMore,
+        categories: _categories,
+        currentCategoryId: currentCategoryId,
+        feedType: _currentFeedType,
+      ));
+    } else if (state is HomeLoading) {
+      emit(HomeLoading(
+        categories: _categories,
+        currentCategoryId: currentCategoryId,
+        feedType: _currentFeedType,
+      ));
+    } else if (state is HomeInitial) {
+      emit(HomeInitial(categories: _categories));
+    } else if (state is HomeRefreshingWithOverlay) {
+      final currentState = state as HomeRefreshingWithOverlay;
+      emit(HomeRefreshingWithOverlay(
+        feedItems: currentState.feedItems,
+        onThisDayEvents: currentState.onThisDayEvents,
+        hasMore: currentState.hasMore,
+        categories: _categories,
+        currentCategoryId: currentCategoryId,
+        feedType: _currentFeedType,
+      ));
+    }
+  }
+
+  // ✅ تحديث البيانات في الخلفية
   Future<void> _refreshDataInBackground() async {
     try {
       print('🔄 HomeCubit: Refreshing data in background...');
@@ -156,6 +279,10 @@ class HomeCubit extends Cubit<HomeState> {
         _nextCursor = response.data.pagination.nextCursor;
         _hasMore = response.data.pagination.hasMore;
         
+        // حفظ كآخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        _lastValidEvents = List.from(_onThisDayEvents);
+        
         // حفظ في التخزين المؤقت
         await _saveToCache();
         
@@ -166,15 +293,15 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
   
-  // ✅ دالة لإعادة تعيين حالة التهيئة (تستخدم عند تسجيل الخروج)
   void resetInitialization() {
     print('🔄 HomeCubit: Resetting initialization state');
     _isInitialized = false;
     _isInitializing = false;
   }
-   bool get isInitialized => _isInitialized;
+  
+  bool get isInitialized => _isInitialized;
+  bool get isRefreshingWithOverlay => _isRefreshingWithOverlay;
 
-  // ✅ الدالة الرئيسية للتحميل
   Future<void> getFeed({
     bool loadMore = false,
     bool forceRefresh = false
@@ -205,16 +332,23 @@ class HomeCubit extends Cubit<HomeState> {
         _isFirstLoad = false;
         
         if (!loadMore) {
-          _allFeedItems = [];
-          _onThisDayEvents = [];
-          _nextCursor = null;
-          _hasMore = true;
-          
-          emit(HomeLoading(
-            categories: _categories,
-            currentCategoryId: _currentCategoryId,
-            feedType: _currentFeedType,
-          ));
+          // إصدار حالة الـ Overlay Loading مع البيانات القديمة إذا كانت موجودة
+          if (_lastValidFeedItems.isNotEmpty) {
+            emit(HomeRefreshingWithOverlay(
+              feedItems: _lastValidFeedItems,
+              onThisDayEvents: _lastValidEvents,
+              hasMore: _hasMore,
+              categories: _categories,
+              currentCategoryId: _currentCategoryId,
+              feedType: _currentFeedType,
+            ));
+          } else {
+            emit(HomeLoading(
+              categories: _categories,
+              currentCategoryId: _currentCategoryId,
+              feedType: _currentFeedType,
+            ));
+          }
         }
       }
 
@@ -237,15 +371,17 @@ class HomeCubit extends Cubit<HomeState> {
       _hasMore = response.data.pagination.hasMore;
       
       if (loadMore) {
-        // إضافة البيانات الجديدة للقائمة الحالية
         _allFeedItems.addAll(response.data.feed);
       } else {
-        // استبدال البيانات القديمة
         _allFeedItems = response.data.feed;
       }
       
       _onThisDayEvents = response.data.onThisDayEvents;
       _isLoadingMore = false;
+      
+      // حفظ كآخر بيانات صالحة
+      _lastValidFeedItems = List.from(_allFeedItems);
+      _lastValidEvents = List.from(_onThisDayEvents);
       
       // 4️⃣ حفظ في التخزين المؤقت إذا كان أول تحميل
       if (!loadMore) {
@@ -269,11 +405,11 @@ class HomeCubit extends Cubit<HomeState> {
       _isLoadingMore = false;
       print('❌ خطأ في تحميل البيانات: $e');
       
-      // في حالة الخطأ، نعرض البيانات الحالية إذا كانت موجودة
-      if (_allFeedItems.isNotEmpty) {
+      // في حالة الخطأ، نعرض البيانات القديمة إذا كانت موجودة
+      if (_lastValidFeedItems.isNotEmpty) {
         emit(HomeLoaded(
-          feedItems: _allFeedItems,
-          onThisDayEvents: _onThisDayEvents,
+          feedItems: _lastValidFeedItems,
+          onThisDayEvents: _lastValidEvents,
           hasMore: _hasMore,
           categories: _categories,
           currentCategoryId: _currentCategoryId,
@@ -293,7 +429,6 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  // ✅ تحميل المزيد تلقائياً
   Future<void> loadMore() async {
     if (_hasMore && !_isLoadingMore && _nextCursor != null) {
       print('🔄 تحميل المزيد - cursor: $_nextCursor');
@@ -301,17 +436,15 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  // ✅ تغيير التصنيف
+  // ✅ تعديل دالة switchCategory عشان تعمل overlay
   Future<void> switchCategory(String? categoryId) async {
     print('🔄 تغيير التصنيف إلى: $categoryId');
     
     if (categoryId == _currentCategoryId) return;
     
-    // حفظ الإعدادات السابقة
     final previousCategoryId = _currentCategoryId;
     final previousFeedType = _currentFeedType;
     
-    // تحديث الإعدادات الجديدة
     if (categoryId == null) {
       _currentCategoryId = null;
       _currentFeedType = 'home';
@@ -320,7 +453,24 @@ class HomeCubit extends Cubit<HomeState> {
       _currentFeedType = 'category';
     }
     
-    // إعادة تعيين البيانات
+    // إصدار حالة الـ Overlay Loading مع البيانات الحالية
+    if (_lastValidFeedItems.isNotEmpty) {
+      emit(HomeRefreshingWithOverlay(
+        feedItems: _lastValidFeedItems,
+        onThisDayEvents: _lastValidEvents,
+        hasMore: _hasMore,
+        categories: _categories,
+        currentCategoryId: previousCategoryId,
+        feedType: previousFeedType,
+      ));
+    } else {
+      emit(HomeLoading(
+        categories: _categories,
+        currentCategoryId: previousCategoryId,
+        feedType: previousFeedType,
+      ));
+    }
+    
     _allFeedItems.clear();
     _onThisDayEvents.clear();
     _nextCursor = null;
@@ -329,88 +479,215 @@ class HomeCubit extends Cubit<HomeState> {
     try {
       await getFeed(forceRefresh: true);
     } catch (e) {
-      // في حالة الخطأ، نعود للإعدادات السابقة
       _currentCategoryId = previousCategoryId;
       _currentFeedType = previousFeedType;
+      
+      // استعادة البيانات القديمة في حالة الخطأ
+      if (_lastValidFeedItems.isNotEmpty) {
+        emit(HomeLoaded(
+          feedItems: _lastValidFeedItems,
+          onThisDayEvents: _lastValidEvents,
+          hasMore: _hasMore,
+          categories: _categories,
+          currentCategoryId: previousCategoryId,
+          feedType: previousFeedType,
+        ));
+      }
       rethrow;
     }
   }
 
-  // ✅ إعادة تحميل البيانات
+  // ✅ دالة refresh الجديدة مع Overlay
   Future<void> refresh() async {
-    print('🔄 إعادة تحميل البيانات');
+    print('🔄 إعادة تحميل البيانات مع الحفاظ على البيانات القديمة');
+    
+    if (_isRefreshingWithOverlay) return;
+    
+    try {
+      _isRefreshingWithOverlay = true;
+      
+      // ✅ إصدار حالة الـ Overlay Loading مع البيانات الحالية
+      if (state is HomeLoaded) {
+        final currentState = state as HomeLoaded;
+        emit(HomeRefreshingWithOverlay(
+          feedItems: currentState.feedItems,
+          onThisDayEvents: currentState.onThisDayEvents,
+          hasMore: currentState.hasMore,
+          categories: currentState.categories,
+          currentCategoryId: currentState.currentCategoryId,
+          feedType: currentState.feedType,
+        ));
+      } else if (state is HomeRefreshingWithOverlay) {
+        // إذا كان بالفعل في حالة overlay، نظهر البيانات القديمة
+        final currentState = state as HomeRefreshingWithOverlay;
+        emit(HomeRefreshingWithOverlay(
+          feedItems: currentState.feedItems,
+          onThisDayEvents: currentState.onThisDayEvents,
+          hasMore: currentState.hasMore,
+          categories: currentState.categories,
+          currentCategoryId: currentState.currentCategoryId,
+          feedType: currentState.feedType,
+        ));
+      }
+      
+      // ✅ حفظ البيانات القديمة مؤقتاً
+      final oldFeedItems = List<FeedItem>.from(_allFeedItems);
+      final oldEvents = List<OnThisDayEvent>.from(_onThisDayEvents);
+      final oldCursor = _nextCursor;
+      final oldHasMore = _hasMore;
+      
+      try {
+        // جلب البيانات الجديدة
+        HomeFeedResponse response;
+        
+        if (_currentFeedType == 'category' && _currentCategoryId != null) {
+          response = await _homeRepository.getCategoryFeed(
+            categoryId: _currentCategoryId!,
+            cursor: null,
+          );
+        } else {
+          response = await _homeRepository.getHomeFeed(cursor: null);
+        }
+        
+        // تحديث البيانات
+        _allFeedItems = response.data.feed;
+        _onThisDayEvents = response.data.onThisDayEvents;
+        _nextCursor = response.data.pagination.nextCursor;
+        _hasMore = response.data.pagination.hasMore;
+        _isFirstLoad = false;
+        
+        // حفظ كآخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        _lastValidEvents = List.from(_onThisDayEvents);
+        
+        // حفظ في التخزين المؤقت
+        await _saveToCache();
+        
+        // إصدار الحالة الجديدة
+        emit(HomeLoaded(
+          feedItems: _allFeedItems,
+          onThisDayEvents: _onThisDayEvents,
+          hasMore: _hasMore,
+          categories: _categories,
+          currentCategoryId: _currentCategoryId,
+          feedType: _currentFeedType,
+        ));
+        
+        print('✅ تم تحديث البيانات بنجاح');
+        
+      } catch (e) {
+        print('❌ خطأ في تحديث البيانات: $e');
+        
+        // ✅ استعادة البيانات القديمة في حالة الخطأ
+        _allFeedItems = oldFeedItems;
+        _onThisDayEvents = oldEvents;
+        _nextCursor = oldCursor;
+        _hasMore = oldHasMore;
+        
+        // حفظ كآخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        _lastValidEvents = List.from(_onThisDayEvents);
+        
+        emit(HomeLoaded(
+          feedItems: _allFeedItems,
+          onThisDayEvents: _onThisDayEvents,
+          hasMore: _hasMore,
+          categories: _categories,
+          currentCategoryId: _currentCategoryId,
+          feedType: _currentFeedType,
+        ));
+        
+        throw e;
+      }
+    } finally {
+      _isRefreshingWithOverlay = false;
+    }
+  }
+
+  // ✅ أضف دالة clearCacheAndRefresh للاستخدام عندما لا يوجد بيانات في الكاش
+  Future<void> clearCacheAndRefresh() async {
+    print('🧹 مسح الكاش وتحويل للتحميل العادي');
+    
     _allFeedItems.clear();
     _onThisDayEvents.clear();
+    _lastValidFeedItems.clear();
+    _lastValidEvents.clear();
     _nextCursor = null;
     _hasMore = true;
     _isFirstLoad = true;
     
+    await _clearCache();
+    
+    emit(HomeLoading(
+      categories: _categories,
+      currentCategoryId: _currentCategoryId,
+      feedType: _currentFeedType,
+    ));
+    
     await getFeed(forceRefresh: true);
   }
 
-  // ✅ دوال التخزين المؤقت
   Future<Map<String, dynamic>?> _loadFromCache() async {
-  try {
-    final cachedTimestamp = await _storageService.readSecureData(_cachedTimestampKey);
-    if (cachedTimestamp == null) return null;
-    
-    final cachedTime = DateTime.parse(cachedTimestamp);
-    final now = DateTime.now();
-    
-    if (now.difference(cachedTime) > _cacheDuration) {
-      print('🗑️ البيانات المخزنة منتهية الصلاحية');
+    try {
+      final cachedTimestamp = await _storageService.readSecureData(_cachedTimestampKey);
+      if (cachedTimestamp == null) return null;
+      
+      final cachedTime = DateTime.parse(cachedTimestamp);
+      final now = DateTime.now();
+      
+      if (now.difference(cachedTime) > _cacheDuration) {
+        print('🗑️ البيانات المخزنة منتهية الصلاحية');
+        return null;
+      }
+      
+      final cachedFeedType = await _storageService.readSecureData(_cachedFeedTypeKey);
+      final cachedCategoryId = await _storageService.readSecureData(_cachedCategoryIdKey);
+      
+      final String currentFeedTypeValue = _currentFeedType ?? 'home';
+      final String currentCategoryIdValue = _currentCategoryId ?? '';
+      final String cachedFeedTypeValue = cachedFeedType ?? 'home';
+      final String cachedCategoryIdValue = cachedCategoryId ?? '';
+      
+      if (currentFeedTypeValue != cachedFeedTypeValue || 
+          currentCategoryIdValue != cachedCategoryIdValue) {
+        print('🗑️ البيانات المخزنة لا تطابق التصفية الحالية');
+        print('   - Current: feedType=$currentFeedTypeValue, categoryId=$currentCategoryIdValue');
+        print('   - Cached: feedType=$cachedFeedTypeValue, categoryId=$cachedCategoryIdValue');
+        return null;
+      }
+      
+      final feedJson = await _storageService.readSecureData(_cachedFeedKey);
+      final eventsJson = await _storageService.readSecureData(_cachedEventsKey);
+      final nextCursor = await _storageService.readSecureData(_cachedNextCursorKey);
+      final hasMoreStr = await _storageService.readSecureData(_cachedHasMoreKey);
+      
+      if (feedJson == null) return null;
+      
+      final feedList = (jsonDecode(feedJson) as List).cast<Map<String, dynamic>>();
+      final feedItems = feedList.map((item) => FeedItem.fromJson(item)).toList();
+      
+      List<OnThisDayEvent> events = [];
+      if (eventsJson != null) {
+        final eventsList = (jsonDecode(eventsJson) as List).cast<Map<String, dynamic>>();
+        events = eventsList.map((item) => OnThisDayEvent.fromJson(item)).toList();
+      }
+      
+      final hasMore = hasMoreStr == 'true';
+      
+      print('📦 تم تحميل ${feedItems.length} برقية من التخزين المؤقت');
+      return {
+        'feedItems': feedItems,
+        'events': events,
+        'nextCursor': nextCursor,
+        'hasMore': hasMore,
+        'feedType': cachedFeedTypeValue,
+        'categoryId': cachedCategoryIdValue,
+      };
+    } catch (e) {
+      print('❌ خطأ في تحميل البيانات المخزنة: $e');
       return null;
     }
-    
-    final cachedFeedType = await _storageService.readSecureData(_cachedFeedTypeKey);
-    final cachedCategoryId = await _storageService.readSecureData(_cachedCategoryIdKey);
-    
-    // ✅ تحسين المقارنة لتشمل الحالات null
-    final String currentFeedTypeValue = _currentFeedType ?? 'home';
-    final String currentCategoryIdValue = _currentCategoryId ?? '';
-    final String cachedFeedTypeValue = cachedFeedType ?? 'home';
-    final String cachedCategoryIdValue = cachedCategoryId ?? '';
-    
-    if (currentFeedTypeValue != cachedFeedTypeValue || 
-        currentCategoryIdValue != cachedCategoryIdValue) {
-      print('🗑️ البيانات المخزنة لا تطابق التصفية الحالية');
-      print('   - Current: feedType=$currentFeedTypeValue, categoryId=$currentCategoryIdValue');
-      print('   - Cached: feedType=$cachedFeedTypeValue, categoryId=$cachedCategoryIdValue');
-      return null;
-    }
-    
-    final feedJson = await _storageService.readSecureData(_cachedFeedKey);
-    final eventsJson = await _storageService.readSecureData(_cachedEventsKey);
-    final nextCursor = await _storageService.readSecureData(_cachedNextCursorKey);
-    final hasMoreStr = await _storageService.readSecureData(_cachedHasMoreKey);
-    
-    if (feedJson == null) return null;
-    
-    final feedList = (jsonDecode(feedJson) as List).cast<Map<String, dynamic>>();
-    final feedItems = feedList.map((item) => FeedItem.fromJson(item)).toList();
-    
-    List<OnThisDayEvent> events = [];
-    if (eventsJson != null) {
-      final eventsList = (jsonDecode(eventsJson) as List).cast<Map<String, dynamic>>();
-      events = eventsList.map((item) => OnThisDayEvent.fromJson(item)).toList();
-    }
-    
-    final hasMore = hasMoreStr == 'true';
-    
-    print('📦 تم تحميل ${feedItems.length} برقية من التخزين المؤقت');
-    return {
-      'feedItems': feedItems,
-      'events': events,
-      'nextCursor': nextCursor,
-      'hasMore': hasMore,
-      'feedType': cachedFeedTypeValue,
-      'categoryId': cachedCategoryIdValue,
-    };
-  } catch (e) {
-    print('❌ خطأ في تحميل البيانات المخزنة: $e');
-    return null;
   }
-}
 
   Future<void> _saveToCache() async {
     try {
@@ -431,33 +708,6 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  Future<void> _loadCategories() async {
-    try {
-      _categories = await _homeRepository.getCategories();
-      
-      // حفظ التصنيفات في التخزين
-      final categoriesJson = jsonEncode(_categories.map((c) => c.toJson()).toList());
-      await _storageService.writeSecureData(_cachedCategoriesKey, categoriesJson);
-      
-      print('✅ تم تحميل ${_categories.length} تصنيف');
-    } catch (e) {
-      print('❌ خطأ في تحميل التصنيفات: $e');
-      
-      // محاولة تحميل من التخزين
-      try {
-        final cached = await _storageService.readSecureData(_cachedCategoriesKey);
-        if (cached != null) {
-          final categoriesList = (jsonDecode(cached) as List).cast<Map<String, dynamic>>();
-          _categories = categoriesList.map((item) => Category.fromJson(item)).toList();
-          print('📦 تم تحميل ${_categories.length} تصنيف من التخزين');
-        }
-      } catch (cacheError) {
-        print('❌ خطأ في تحميل التصنيفات المخزنة: $cacheError');
-      }
-    }
-  }
-
-  // ✅ دوال التفاعل مع تحديث الـ UI فوراً
   Future<void> likeTelegram(String telegramId) async {
     try {
       final index = _allFeedItems.indexWhere((item) => item.id == telegramId);
@@ -474,6 +724,9 @@ class HomeCubit extends Cubit<HomeState> {
         
         _allFeedItems[index] = updatedItem;
         
+        // تحديث آخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        
         emit(HomeLoaded(
           feedItems: List.from(_allFeedItems),
           onThisDayEvents: _onThisDayEvents,
@@ -489,7 +742,6 @@ class HomeCubit extends Cubit<HomeState> {
     } catch (e) {
       print('❌ خطأ في الإعجاب: $e');
       
-      // التراجع عن التحديث في حالة الخطأ
       final index = _allFeedItems.indexWhere((item) => item.id == telegramId);
       if (index != -1) {
         final item = _allFeedItems[index];
@@ -503,6 +755,9 @@ class HomeCubit extends Cubit<HomeState> {
         );
         
         _allFeedItems[index] = updatedItem;
+        
+        // تحديث آخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
         
         emit(HomeLoaded(
           feedItems: List.from(_allFeedItems),
@@ -532,6 +787,9 @@ class HomeCubit extends Cubit<HomeState> {
         
         _allFeedItems[index] = updatedItem;
         
+        // تحديث آخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        
         emit(HomeLoaded(
           feedItems: List.from(_allFeedItems),
           onThisDayEvents: _onThisDayEvents,
@@ -547,7 +805,6 @@ class HomeCubit extends Cubit<HomeState> {
     } catch (e) {
       print('❌ خطأ في إلغاء الإعجاب: $e');
       
-      // التراجع عن التحديث
       final index = _allFeedItems.indexWhere((item) => item.id == telegramId);
       if (index != -1) {
         final item = _allFeedItems[index];
@@ -561,6 +818,9 @@ class HomeCubit extends Cubit<HomeState> {
         );
         
         _allFeedItems[index] = updatedItem;
+        
+        // تحديث آخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
         
         emit(HomeLoaded(
           feedItems: List.from(_allFeedItems),
@@ -590,6 +850,9 @@ class HomeCubit extends Cubit<HomeState> {
         
         _allFeedItems[index] = updatedItem;
         
+        // تحديث آخر بيانات صالحة
+        _lastValidFeedItems = List.from(_allFeedItems);
+        
         emit(HomeLoaded(
           feedItems: List.from(_allFeedItems),
           onThisDayEvents: _onThisDayEvents,
@@ -607,14 +870,14 @@ class HomeCubit extends Cubit<HomeState> {
     }
   }
 
-  // ✅ مسح التخزين المؤقت عند تسجيل الخروج
   Future<void> clearCacheAndData() async {
     print('🧹 HomeCubit: مسح كل البيانات والتخزين...');
     
     try {
-      // مسح البيانات المحلية
       _allFeedItems.clear();
       _onThisDayEvents.clear();
+      _lastValidFeedItems.clear();
+      _lastValidEvents.clear();
       _categories.clear();
       _nextCursor = null;
       _hasMore = true;
@@ -623,10 +886,8 @@ class HomeCubit extends Cubit<HomeState> {
       _currentCategoryId = null;
       _currentFeedType = 'home';
       
-      // مسح التخزين المؤقت
       await _clearCache();
       
-      // إعادة الحالة الأولية
       emit(HomeInitial(categories: []));
       
       print('✅ HomeCubit: تم مسح كل البيانات بنجاح');
@@ -644,11 +905,106 @@ class HomeCubit extends Cubit<HomeState> {
       await _storageService.deleteSecureData(_cachedTimestampKey);
       await _storageService.deleteSecureData(_cachedFeedTypeKey);
       await _storageService.deleteSecureData(_cachedCategoryIdKey);
-      await _storageService.deleteSecureData(_cachedCategoriesKey);
       
       print('🗑️ تم مسح التخزين المؤقت للـ HomeCubit');
     } catch (e) {
       print('❌ خطأ في مسح التخزين المؤقت: $e');
+    }
+  }
+  
+  Future<void> resetCubit() async {
+    print('🔄 HomeCubit: Resetting cubit completely...');
+    
+    try {
+      _allFeedItems.clear();
+      _onThisDayEvents.clear();
+      _lastValidFeedItems.clear();
+      _lastValidEvents.clear();
+      _categories.clear();
+      _nextCursor = null;
+      _hasMore = true;
+      _isFirstLoad = true;
+      _isLoadingMore = false;
+      _currentCategoryId = null;
+      _currentFeedType = 'home';
+      
+      _isInitialized = false;
+      _isInitializing = false;
+      
+      await _clearCache();
+      
+      emit(HomeInitial(categories: []));
+      
+      print('✅ HomeCubit: Reset completed successfully');
+    } catch (e) {
+      print('❌ HomeCubit: Error during reset: $e');
+      emit(HomeError(
+        error: 'فشل إعادة التعيين',
+        feedItems: [],
+        onThisDayEvents: [],
+        hasMore: false,
+        categories: [],
+      ));
+    }
+  }
+
+  Future<void> forceClear() async {
+    print('🧹 HomeCubit: Force clearing all data...');
+    
+    _allFeedItems.clear();
+    _onThisDayEvents.clear();
+    _lastValidFeedItems.clear();
+    _lastValidEvents.clear();
+    _categories.clear();
+    _nextCursor = null;
+    _hasMore = true;
+    _isFirstLoad = true;
+    _isLoadingMore = false;
+    _currentCategoryId = null;
+    _currentFeedType = 'home';
+    _isInitialized = false;
+    _isInitializing = false;
+  }
+  
+  Future<void> clearDataOnNewLogin() async {
+    print('🔄 HomeCubit: Clearing data for new login...');
+    
+    try {
+      _allFeedItems.clear();
+      _onThisDayEvents.clear();
+      _lastValidFeedItems.clear();
+      _lastValidEvents.clear();
+      _nextCursor = null;
+      _hasMore = true;
+      _isFirstLoad = true;
+      _isLoadingMore = false;
+      _currentCategoryId = null;
+      _currentFeedType = 'home';
+      
+      await _clearCache();
+      
+      _isInitialized = false;
+      _isInitializing = false;
+      
+      emit(HomeInitial(categories: _categories));
+      
+      print('✅ HomeCubit: Data cleared for new login');
+    } catch (e) {
+      print('❌ HomeCubit: Error clearing data for new login: $e');
+    }
+  }
+  
+  Future<void> forceRefreshOnLogin() async {
+    print('🔄 HomeCubit: Force refresh on login...');
+    
+    try {
+      await clearDataOnNewLogin();
+      
+      await getFeed(forceRefresh: true);
+      
+      print('✅ HomeCubit: Force refresh completed');
+    } catch (e) {
+      print('❌ HomeCubit: Error in force refresh: $e');
     }
   }
 
@@ -662,4 +1018,8 @@ class HomeCubit extends Cubit<HomeState> {
   List<OnThisDayEvent> get onThisDayEvents => _onThisDayEvents;
   List<Category> get categories => _categories;
   bool get hasNextCursor => _nextCursor != null && _nextCursor!.isNotEmpty;
+  
+  // ✅ Getter للبيانات القديمة
+  List<FeedItem> get lastValidFeedItems => _lastValidFeedItems;
+  List<OnThisDayEvent> get lastValidEvents => _lastValidEvents;
 }
