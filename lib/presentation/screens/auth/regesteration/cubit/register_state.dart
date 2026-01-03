@@ -1,5 +1,13 @@
-// lib/features/auth/presentation/cubit/register_state.dart
 part of 'register_cubit.dart';
+
+enum RegisterErrorType {
+  emailAlreadyUsed,
+  phoneAlreadyUsed,
+  validation,
+  general,
+  network,
+  server,
+}
 
 abstract class RegisterState {}
 
@@ -15,6 +23,10 @@ class RegisterSuccess extends RegisterState {
 
 class RegisterFailure extends RegisterState {
   final String error;
+  final RegisterErrorType errorType;
   
-  RegisterFailure({required this.error});
+  RegisterFailure({
+    required this.error,
+    this.errorType = RegisterErrorType.general,
+  });
 }

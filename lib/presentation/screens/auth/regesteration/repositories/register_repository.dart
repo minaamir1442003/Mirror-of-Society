@@ -1,4 +1,3 @@
-// lib/features/auth/data/repositories/register_repository.dart
 import 'package:app_1/core/constants/dio_client.dart';
 import 'package:app_1/data/models/user_model.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/models/register_request.dart';
@@ -73,32 +72,49 @@ class RegisterRepository {
       print('✅ Response received: ${response.statusCode}');
       print('📝 Response data: ${response.data}');
 
-      // 7. Handle Response - هنا التعديل المهم
+      // 7. Handle Response
       final responseData = response.data;
-      
+
       // إذا كان الـstatus = false من السيرفر
       if (responseData['status'] == false) {
-        return RegisterResponse(
-          status: false,
-          message: responseData['message'] ?? 'Registration failed',
-          token: '',
-          user: UserModel.fromJson({
-            'id': 0,
-            'firstname': '',
-            'lastname': '',
-            'email': '',
-            'phone': '',
-            'bio': '',
-            'zodiac': '',
-            'zodiac_description': '',
-            'share_location': 0,
-            'share_zodiac': 0,
-            'birthdate': '',
-            'country': '',
-            'is_verified': 0,
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          }),
+        print('❌ Registration failed with data: $responseData');
+        
+        // **استخراج رسالة الخطأ المباشرة من الـ errors**
+        String errorMessage = 'Registration failed';
+        
+        if (responseData.containsKey('errors') && responseData['errors'] is Map) {
+          final errors = responseData['errors'] as Map<String, dynamic>;
+          print('🔍 Full errors from server: $errors');
+          
+          // استخراج أول رسالة خطأ (الأولوية للـ email)
+          if (errors.containsKey('email') && errors['email'] is List && (errors['email'] as List).isNotEmpty) {
+            errorMessage = (errors['email'] as List)[0].toString();
+            print('✅ Extracted email error: $errorMessage');
+          } 
+          // إذا لم يكن هناك email error، أخذ أول خطأ موجود
+          else if (errors.isNotEmpty) {
+            final firstErrorKey = errors.keys.first;
+            final firstErrorValue = errors[firstErrorKey];
+            
+            if (firstErrorValue is List && firstErrorValue.isNotEmpty) {
+              errorMessage = firstErrorValue[0].toString();
+            } else if (firstErrorValue is String) {
+              errorMessage = firstErrorValue;
+            }
+            print('✅ Extracted first error ($firstErrorKey): $errorMessage');
+          }
+        } else {
+          // إذا لم يكن هناك errors، استخدم message العامة
+          errorMessage = responseData['message'] ?? 'Registration failed';
+          print('⚠️ No errors key, using message: $errorMessage');
+        }
+        
+        print('✅ Final error message to send: $errorMessage');
+        
+        // **استخدام الـ factory الجديدة**
+        return RegisterResponse.failure(
+          message: errorMessage,
+          errorData: responseData['errors'] ?? {},
         );
       }
 
@@ -124,7 +140,7 @@ class RegisterRepository {
         };
 
         // Create Response
-        return RegisterResponse(
+        return RegisterResponse.success(
           status: responseData['status'] ?? false,
           message: responseData['message'] ?? '',
           token: responseData['token'] ?? '',
@@ -142,78 +158,59 @@ class RegisterRepository {
       if (e.response != null) {
         // حالة 422 (Validation Errors)
         if (e.response!.statusCode == 422) {
-          final errors = e.response!.data['errors'];
-          final errorMessage = _formatValidationErrors(errors);
-          throw Exception(errorMessage);
+          final responseData = e.response!.data;
+          print('🔍 422 Validation Error Response: $responseData');
+          
+          if (responseData is Map && responseData.containsKey('errors')) {
+            final errors = responseData['errors'] as Map<String, dynamic>;
+            
+            // استخراج رسالة الـ email مباشرة
+            String errorMessage = 'validation error';
+            
+            if (errors.containsKey('email') && errors['email'] is List && (errors['email'] as List).isNotEmpty) {
+              errorMessage = (errors['email'] as List)[0].toString();
+              print('✅ Extracted email error from 422: $errorMessage');
+            } 
+            // إذا لم يكن هناك email error
+            else if (errors.isNotEmpty) {
+              final firstErrorKey = errors.keys.first;
+              final firstErrorValue = errors[firstErrorKey];
+              
+              if (firstErrorValue is List && firstErrorValue.isNotEmpty) {
+                errorMessage = firstErrorValue[0].toString();
+              } else if (firstErrorValue is String) {
+                errorMessage = firstErrorValue;
+              }
+              print('✅ Extracted first error from 422 ($firstErrorKey): $errorMessage');
+            }
+            
+            print('✅ Final error message from 422: $errorMessage');
+            
+            return RegisterResponse.failure(
+              message: errorMessage,
+              errorData: errors,
+            );
+          }
         }
 
         // حالة 400-500 أخرى
         final responseData = e.response!.data;
-        if (responseData is Map && responseData.containsKey('status')) {
-          // إذا كان الرد منظم بنفس تنسيق API
-          final errorMessage = responseData['message'] ?? e.message ?? 'حدث خطأ غير معروف';
-          throw Exception(errorMessage);
-        } else {
-          // إذا كان الرد غير منظم
-          final errorMessage = responseData?.toString() ?? e.message ?? 'فشل الاتصال بالخادم';
-          throw Exception(errorMessage);
+        String errorMessage = 'Connection failed';
+        
+        if (responseData is Map && responseData.containsKey('message')) {
+          errorMessage = responseData['message'];
         }
+        
+        return RegisterResponse.failure(
+          message: errorMessage,
+          errorData: {},
+        );
       }
 
-      throw Exception('فشل الاتصال بالخادم: ${e.message}');
+      throw Exception('Connection failed: ${e.message}');
     } catch (e) {
       print('❌ Unexpected Error: $e');
-      throw Exception('حدث خطأ غير متوقع: $e');
+      throw Exception('Unexpected error: $e');
     }
   }
-
-String _formatValidationErrors(Map<String, dynamic> errors) {
-  print('📝 Formatting validation errors: $errors');
-  
-  final messages = <String>[];
-  
-  // التعامل مع أنواع مختلفة من errors
-  errors.forEach((field, errorList) {
-    print('🔍 Field: $field, ErrorList: $errorList');
-    
-    if (errorList is List) {
-      for (var error in errorList) {
-        final fieldName = _getFieldDisplayName(field);
-        messages.add('$fieldName: $error');
-      }
-    } else if (errorList is String) {
-      final fieldName = _getFieldDisplayName(field);
-      messages.add('$fieldName: $errorList');
-    } else {
-      // If errorList is not List or String, convert to string
-      final fieldName = _getFieldDisplayName(field);
-      messages.add('$fieldName: $errorList');
-    }
-  });
-  
-  final result = messages.join('\n');
-  print('✅ Formatted error message: $result');
-  return result;
-}
-
-String _getFieldDisplayName(String field) {
-  final fieldMap = {
-    'firstname': 'First name',
-    'lastname': 'Last name',
-    'email': 'Email',
-    'password': 'Password',
-    'password_confirmation': 'Password confirmation',
-    'phone': 'Phone number',
-    'bio': 'Bio',
-    'zodiac': 'Zodiac',
-    'zodiac_description': 'Zodiac description',
-    'birthdate': 'Birth date',
-    'country': 'Country',
-    'interests': 'Interests',
-    'image': 'Profile image',
-    'cover': 'Cover image',
-  };
-  
-  return fieldMap[field] ?? field;
-}
 }

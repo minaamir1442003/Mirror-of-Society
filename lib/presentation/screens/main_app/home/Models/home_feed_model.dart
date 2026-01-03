@@ -111,7 +111,6 @@ class FeedItem {
     );
   }
 
-  // ✅ دالة التحويل إلى Map (للتخزين)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -141,7 +140,6 @@ class FeedItem {
     };
   }
 
-  // ✅ دالة التحويل إلى BoltModel
   BoltModel toBoltModel({
     VoidCallback? onLikePressed,
     VoidCallback? onCommentPressed,
@@ -156,6 +154,7 @@ class FeedItem {
       createdAt: createdAt,
       userName: user.name,
       userImage: user.image.isNotEmpty ? user.image : "assets/image/images.jpg",
+      userId: user.id, 
       likes: metrics.likesCount,
       comments: metrics.commentsCount,
       shares: metrics.repostsCount,
@@ -169,7 +168,6 @@ class FeedItem {
     );
   }
 
-  // ✅ دالة مساعدة لتحويل اللون
   Color _parseColor(String hexColor) {
     try {
       hexColor = hexColor.replaceAll("#", "");
@@ -182,31 +180,53 @@ class FeedItem {
     }
   }
 
-  // ✅ دالة للحصول على الأيقونة المناسبة
   IconData _getCategoryIcon(String categoryName) {
     switch (categoryName.toLowerCase()) {
       case 'arts':
+      case 'فن':
         return Icons.palette;
       case 'sports':
+      case 'رياضة':
         return Icons.sports_soccer;
       case 'technology':
+      case 'تكنولوجيا':
         return Icons.computer;
       case 'movies':
+      case 'أفلام':
         return Icons.movie;
       case 'fashion':
+      case 'موضة':
         return Icons.shopping_bag;
       case 'business':
+      case 'أعمال':
         return Icons.business;
       case 'health':
+      case 'صحة':
         return Icons.health_and_safety;
       case 'travel':
+      case 'سفر':
         return Icons.flight;
       case 'science':
+      case 'علوم':
         return Icons.science;
       case 'gaming':
+      case 'ألعاب':
         return Icons.games;
       case 'literature':
+      case 'أدب':
         return Icons.menu_book;
+      case 'politics':
+      case 'سياسة':
+        return Icons.flag;
+      case 'food':
+      case 'طعام':
+        return Icons.restaurant;
+      case 'music':
+      case 'موسيقى':
+        return Icons.music_note;
+      case 'education':
+      case 'تعليم':
+        return Icons.school;
       default:
         return Icons.category;
     }
@@ -238,7 +258,6 @@ class TelegramUser {
     );
   }
 
-  // ✅ دالة التحويل إلى Map
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -272,7 +291,6 @@ class CategoryModel {
     );
   }
 
-  // ✅ دالة التحويل إلى Map
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -302,7 +320,6 @@ class FeedMetrics {
     );
   }
 
-  // ✅ دالة التحويل إلى Map
   Map<String, dynamic> toJson() {
     return {
       'likes_count': likesCount,
@@ -339,7 +356,6 @@ class OnThisDayEvent {
     );
   }
 
-  // ✅ دالة التحويل إلى Map
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -347,6 +363,42 @@ class OnThisDayEvent {
       'description': description,
       'date': date.toIso8601String(),
       'image_url': imageUrl,
+    };
+  }
+}
+
+class Category {
+  final String id;
+  final String name;
+  final String color;
+  final String? icon;
+  final int telegramsCount;
+
+  Category({
+    required this.id,
+    required this.name,
+    required this.color,
+    this.icon,
+    required this.telegramsCount,
+  });
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id'].toString(),
+      name: json['name'] ?? '',
+      color: json['color'] ?? '#000000',
+      icon: json['icon'],
+      telegramsCount: json['telegrams_count'] ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'color': color,
+      'icon': icon,
+      'telegrams_count': telegramsCount,
     };
   }
 }
@@ -370,7 +422,6 @@ class PaginationInfo {
     );
   }
 
-  // ✅ دالة التحويل إلى Map
   Map<String, dynamic> toJson() {
     return {
       'next_cursor': nextCursor,

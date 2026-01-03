@@ -73,6 +73,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         image: '',
         cover: '',
         zodiac: '',
+        zodiacIcon: '',
         zodiacDescription: '',
         shareLocation: false,
         shareZodiac: false,

@@ -1,11 +1,20 @@
 import 'package:app_1/data/services/language_service.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/cubit/forgot_password_cubit.dart';
 import 'package:app_1/presentation/screens/auth/login/cubit/login_cubit.dart';
+import 'package:app_1/presentation/screens/auth/regesteration/models/registration_provider.dart';
 import 'package:app_1/presentation/screens/auth/regesteration/screens/RegisterStep1Screen.dart';
+import 'package:app_1/presentation/screens/main_app/create_bolt/cubits/telegram_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/explore/cubits/category_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/home/Cubit/home_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/auth_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/cubits/comment_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/cubits/like_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/profile_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/cubits/repost_cubit.dart';
 import 'package:app_1/presentation/screens/main_app/profile/cubits/update_profile_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/verification/cubits/verification_cubit.dart';
+import 'package:app_1/presentation/screens/main_app/profile/verification/repositories/verification_repository.dart';
+import 'package:app_1/presentation/screens/main_app/user_profile/cubits/user_profile_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,7 +23,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 
 import 'package:app_1/core/constants/injection_container.dart' as di;
-import 'package:app_1/core/constants/shared%20pref.dart';
 import 'package:app_1/presentation/screens/auth/forgetpassword/screen/forgot_password_screen.dart';
 import 'package:app_1/presentation/screens/auth/login/screen/login_screen.dart';
 import 'package:app_1/presentation/screens/main_app/main_screen.dart';
@@ -24,18 +32,28 @@ import 'package:app_1/core/constants/app_constants.dart';
 import 'package:app_1/presentation/providers/language_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/constants/shared pref.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  print('🚀 App starting...');
+  // ✅ إخفاء الـ logs في الإصدار النهائي
+  bool isDebug = true; // غيّرها لـ false في الإصدار النهائي
   
-  // ✅ اختبار SharedPreferences مباشرة
+  if (!isDebug) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  } else {
+    print('🚀 App starting...');
+  }
+
+  // ✅ اختبار SharedPreferences
   try {
     final testPrefs = await SharedPreferences.getInstance();
-    print('✅ SharedPreferences test: successful');
-    print('🔍 Test prefs keys: ${testPrefs.getKeys()}');
+    if (isDebug) {
+      print('✅ SharedPreferences test: successful');
+    }
   } catch (e) {
-    print('❌ SharedPreferences test failed: $e');
+    if (isDebug) print('❌ SharedPreferences test failed: $e');
   }
 
   // ✅ إنشاء navigatorKey أولاً
@@ -44,11 +62,13 @@ void main() async {
   // ✅ تمرير navigatorKey إلى init
   await di.init(navigatorKey);
 
-  // احصل على اللغة المحفوظة قبل تشغيل التطبيق
+  // احصل على اللغة المحفوظة
   final savedLanguage = await LanguageService.getSavedLanguage();
   final savedLanguageCode = LanguageService.getLanguageCode(savedLanguage);
-  
-  print('🌐 Saved language: $savedLanguage, code: $savedLanguageCode');
+
+  if (isDebug) {
+    print('🌐 Saved language: $savedLanguage, code: $savedLanguageCode');
+  }
 
   runApp(
     MyApp(
@@ -72,6 +92,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // ✅ إضافة StorageService كـ Provider
+        // سيتم إضافته في ملف منفصل إذا كنت تستخدم GetIt
+        
         // Bloc Providers
         BlocProvider(create: (context) => di.sl<AuthCubit>()),
         BlocProvider(create: (context) => di.sl<RegisterCubit>()),
@@ -80,14 +103,30 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (context) => di.sl<ForgotPasswordCubit>()),
         BlocProvider(create: (context) => di.sl<UpdateProfileCubit>()),
         BlocProvider(create: (context) => di.sl<HomeCubit>()),
-
-        // أضف LanguageProvider هنا
+        BlocProvider(create: (context) => di.sl<TelegramCubit>()),
+        BlocProvider(create: (context) => di.sl<VerificationCubit>()),
+        BlocProvider(create: (context) => di.sl<UserProfileCubit>()),
+        BlocProvider(create: (context) => di.sl<CommentCubit>()),
+        BlocProvider(create: (context) => di.sl<RepostCubit>()),
+        BlocProvider(create: (context) => di.sl<CategoryCubit>()),
+        BlocProvider(create: (context) => di.sl<LikeCubit>()),
+        
+        Provider<VerificationRepository>(
+          create: (context) => di.sl<VerificationRepository>(),
+        ),
+        
+        // Language Provider
         ChangeNotifierProvider<LanguageProvider>(
           create: (context) => LanguageProvider(initialLocale: initialLanguage),
         ),
+        
+        // RegistrationProvider
+        ChangeNotifierProvider<RegistrationProvider>(
+          create: (context) => RegistrationProvider(),
+        ),
       ],
-      child: Consumer<LanguageProvider>(
-        builder: (context, languageProvider, child) {
+      child: Consumer2<LanguageProvider, RegistrationProvider>(
+        builder: (context, languageProvider, registrationProvider, child) {
           return ScreenUtilInit(
             designSize: const Size(360, 690),
             minTextAdapt: true,
@@ -99,11 +138,9 @@ class MyApp extends StatelessWidget {
                 theme: _buildTheme(),
                 darkTheme: _buildDarkTheme(),
                 themeMode: ThemeMode.light,
-
-                // ✅ إضافة navigatorKey هنا
+                
                 navigatorKey: navigatorKey,
 
-                // هنا نحدد اللغة بشكل ديناميكي
                 locale: languageProvider.currentLocale,
                 localizationsDelegates: const [
                   GlobalMaterialLocalizations.delegate,
@@ -117,6 +154,7 @@ class MyApp extends StatelessWidget {
                   Locale('es', ''),
                 ],
 
+                // ✅ مباشرة إلى AuthChecker
                 home: const AuthChecker(),
 
                 routes: {
@@ -238,7 +276,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// AuthChecker Widget
+// ✅ AuthChecker بدون شاشة تحميل
 class AuthChecker extends StatefulWidget {
   const AuthChecker({Key? key}) : super(key: key);
 
@@ -247,121 +285,68 @@ class AuthChecker extends StatefulWidget {
 }
 
 class _AuthCheckerState extends State<AuthChecker> {
-  bool _isLoading = true;
-  bool _shouldShowOnboarding = false;
-  bool _isLoggedIn = false;
+  Widget? _initialScreen;
 
   @override
   void initState() {
     super.initState();
-    print('🚀 AuthChecker: initState');
-    _checkStatus();
+    _determineInitialScreen();
   }
 
-  Future<void> _checkStatus() async {
+  Future<void> _determineInitialScreen() async {
     try {
       final storageService = di.sl<StorageService>();
-      
-      print('🔍 AuthChecker: Starting status check...');
-      
-      // ✅ 1. تأكد من تهيئة StorageService
       await storageService.ensureInitialized();
-      
-      // ✅ 2. طباعة معلومات التخزين للتحقق
-      await storageService.debugStorage();
-      
-      // ✅ 3. التحقق من حالة الأونبوردينج
-      final isOnboardingCompleted = await storageService.isOnboardingCompleted();
-      print('📊 AuthChecker: isOnboardingCompleted = $isOnboardingCompleted');
-      
-      // ✅ 4. التحقق من التوكن
-      final token = await storageService.getToken();
-      final isLoggedIn = (token != null && token.isNotEmpty);
-      print('📊 AuthChecker: isLoggedIn = $isLoggedIn');
-      print('📊 AuthChecker: token = ${token != null ? "Exists (${token.length} chars)" : "null"}');
 
-      // ✅ 5. محاكاة تأخير تحميل البيانات (اختياري)
-      await Future.delayed(const Duration(milliseconds: 300));
+      // تحميل البيانات بسرعة
+      final results = await Future.wait([
+        storageService.isOnboardingCompleted(),
+        storageService.getToken(),
+      ]);
+
+      final isOnboardingCompleted = results[0] as bool;
+      final token = results[1] as String?;
+      final isLoggedIn = token != null && token.isNotEmpty;
+
+      if (!isOnboardingCompleted) {
+        _initialScreen = OnboardingScreen(
+          onCompleted: () async {
+            await storageService.setOnboardingCompleted();
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            }
+          },
+        );
+      } else if (isLoggedIn) {
+        _initialScreen = MainScreen();
+      } else {
+        _initialScreen = const LoginScreen();
+      }
 
       if (mounted) {
-        setState(() {
-          _shouldShowOnboarding = !isOnboardingCompleted;
-          _isLoggedIn = isLoggedIn;
-          _isLoading = false;
-        });
-        
-        print('📊 AuthChecker: Final Decision');
-        print('   - Show Onboarding: $_shouldShowOnboarding');
-        print('   - User Logged In: $_isLoggedIn');
+        setState(() {});
       }
     } catch (e) {
-      print('❌ AuthChecker: Error checking status: $e');
-      
+      // في حالة الخطأ، انتقل مباشرة إلى تسجيل الدخول
+      _initialScreen = const LoginScreen();
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _shouldShowOnboarding = true; // في حالة الخطأ، اعرض الأونبوردينج
-          _isLoggedIn = false;
-        });
-        
-        print('⚠️ AuthChecker: Defaulting to Onboarding due to error');
+        setState(() {});
       }
-    }
-  }
-
-  // ✅ دالة لحفظ حالة إكمال الأونبوردينج مباشرة
-  Future<void> _markOnboardingCompleted() async {
-    try {
-      final storageService = di.sl<StorageService>();
-      await storageService.setOnboardingCompleted();
-      print('✅ AuthChecker: Onboarding completion saved successfully');
-    } catch (e) {
-      print('❌ AuthChecker: Error saving onboarding completion: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    print('🚀 AuthChecker: Building widget');
-    print('   - isLoading: $_isLoading');
-    print('   - shouldShowOnboarding: $_shouldShowOnboarding');
-    print('   - isLoggedIn: $_isLoggedIn');
-    
-    if (_isLoading) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 20),
-              Text(
-                'جاري التحميل...',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    
-    print('🚀 AuthChecker: Navigation Decision');
-    print('   - Show Onboarding: $_shouldShowOnboarding');
-    print('   - User Logged In: $_isLoggedIn');
-    
-    if (_shouldShowOnboarding) {
-      print('🚀 Showing OnboardingScreen');
-      return OnboardingScreen(
-        onCompleted: _markOnboardingCompleted, // ✅ تمرير callback
+    // إذا لم يتم تحديد الشاشة بعد، اعرض شاشة بيضاء مؤقتاً
+    if (_initialScreen == null) {
+      return const Scaffold(
+        body: SizedBox.shrink(), // شاشة بيضاء فارغة مؤقتاً
       );
     }
 
-    if (_isLoggedIn) {
-      print('🚀 Showing MainScreen (User is logged in)');
-      return MainScreen();
-    }
-
-    print('🚀 Showing LoginScreen (User is not logged in)');
-    return const LoginScreen();
+    // الانتقال المباشر للشاشة المناسبة
+    return _initialScreen!;
   }
 }
